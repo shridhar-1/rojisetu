@@ -164,14 +164,28 @@ export function questionTopic(text: string): Topic | null {
 // Chit-chat and skip guards (deterministic, zero AI)
 // ---------------------------------------------------------------------------
 
-const CHITCHAT: Record<Lang, string[]> = {
-  en: ["hi", "hello", "hey", "namaste", "good morning", "good afternoon", "good evening", "thank you", "thanks", "ok", "okay", "yes", "right"],
-  hi: ["नमस्ते", "नमस्कार", "हेलो", "राम राम", "धन्यवाद", "शुक्रिया", "जी", "ठीक है", "अच्छा", "हाँ"],
-  bn: ["নমস্কার", "হ্যালো", "ধন্যবাদ", "আচ্ছা", "জি", "ভালো", "হ্যাঁ"],
-  kn: ["ನಮಸ್ತೆ", "ನಮಸ್ಕಾರ", "ಹಲೋ", "ಧನ್ಯವಾದ", "ಸರಿ", "ಹೌದು", "ಚೆನ್ನಾಗಿ"],
-  ta: ["வணக்கம்", "ஹலோ", "நன்றி", "சரி", "ஆமாம்", "நல்லது"],
-  te: ["నమస్తే", "నమస్కారం", "హలో", "ధన్యవాదాలు", "సరే", "అవును", "బాగుంది"],
-  mr: ["नमस्ते", "नमस्कार", "हॅलो", "धन्यवाद", "ठीक आहे", "बरं", "हो"],
+// Greetings may be followed by small talk ("namaste ji"), so prefix matching
+// is allowed for them only. Ack words ("yes", "ok", "haan") must match
+// EXACTLY - otherwise real answers like "yes i can travel anywhere" or
+// "ok my father was a tailor" get swallowed as chit-chat and never mark.
+const GREETINGS: Record<Lang, string[]> = {
+  en: ["hi", "hello", "hey", "namaste", "good morning", "good afternoon", "good evening"],
+  hi: ["नमस्ते", "नमस्कार", "हेलो", "राम राम"],
+  bn: ["নমস্কার", "হ্যালো"],
+  kn: ["ನಮಸ್ತೆ", "ನಮಸ್ಕಾರ", "ಹಲೋ"],
+  ta: ["வணக்கம்", "ஹலோ"],
+  te: ["నమస్తే", "నమస్కారం", "హలో"],
+  mr: ["नमस्ते", "नमस्कार", "हॅलो"],
+};
+
+const ACK_WORDS: Record<Lang, string[]> = {
+  en: ["thank you", "thanks", "ok", "okay", "yes", "right", "ji"],
+  hi: ["धन्यवाद", "शुक्रिया", "जी", "ठीक है", "अच्छा", "हाँ"],
+  bn: ["ধন্যবাদ", "আচ্ছা", "জি", "ভালো", "হ্যাঁ"],
+  kn: ["ಧನ್ಯವಾದ", "ಸರಿ", "ಹೌದು", "ಚೆನ್ನಾಗಿ"],
+  ta: ["நன்றி", "சரி", "ஆமாம்", "நல்லது"],
+  te: ["ధన్యవాదాలు", "సరే", "అవును", "బాగుంది"],
+  mr: ["धन्यवाद", "ठीक आहे", "बरं", "हो"],
 };
 
 const SKIP: Record<Lang, string[]> = {
@@ -191,8 +205,10 @@ function shortText(norm: string, max: number): boolean {
 export function isChitChat(text: string, lang: Lang): boolean {
   const norm = normalize(text);
   if (!shortText(norm, 26)) return false;
-  const bank = [...CHITCHAT[lang], ...CHITCHAT.en];
-  return bank.some((p) => norm === p || norm.startsWith(p + " ") || norm === p + " ji");
+  const greets = [...GREETINGS[lang], ...GREETINGS.en];
+  if (greets.some((p) => norm === p || norm.startsWith(p + " "))) return true;
+  const acks = [...ACK_WORDS[lang], ...ACK_WORDS.en];
+  return acks.some((p) => norm === p);
 }
 
 export function isSkip(text: string, lang: Lang): boolean {
