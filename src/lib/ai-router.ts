@@ -67,7 +67,8 @@ async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null
         signal: AbortSignal.timeout(7000),
       });
       if (!res.ok) {
-        lastReason = `groq:${res.status}`;
+        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        lastReason = `groq:${res.status}:${errText}`;
         continue;
       }
       const data = (await res.json()) as {
@@ -108,7 +109,8 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
         }
       );
       if (!res.ok) {
-        lastReason = `gemini:${res.status}`;
+        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        lastReason = `gemini:${res.status}:${errText}`;
         continue;
       }
       const data = (await res.json()) as {
