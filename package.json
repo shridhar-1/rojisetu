@@ -1,0 +1,30 @@
+{
+  "name": "rojisetu",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RojiSetu - AI voice assistant for livelihood mapping and NSQF-aligned skilling under PM-AJAY (SIH 26097, MoSJE). Team EcoLogic, SIH 2026.",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2",
+    "next": "^14.2.32",
+    "postgres": "^3.4.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "drizzle-kit": "^0.30.4",
+    "typescript": "^5.6.2"
+  }
+}

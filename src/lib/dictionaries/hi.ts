@@ -1,0 +1,53 @@
+import type { Dict } from "./en";
+
+export const hi: Dict = {
+  appName: "रोज़ीसेतु",
+  tagline: "रोज़गार का पुल। बोलिए, हम आपकी राह खोजेंगे।",
+  landing: {
+    beneficiary: "मैं लाभार्थी हूँ",
+    beneficiaryHint: "अपनी भाषा में सहायक से बात करें",
+    official: "अधिकारी डैशबोर्ड",
+    officialHint: "प्रोफ़ाइल, सिफ़ारिशें और नतीजे",
+  },
+  picker: {
+    label: "अपनी भाषा चुनें",
+  },
+  kiosk: {
+    welcome: "स्वागत है",
+    introLine:
+      "हम थोड़ी दोस्ताना बातचीत करेंगे। कोई फ़ॉर्म नहीं पढ़ना। बस अपने शब्दों में बोलिए।",
+    topicsTitle: "हम किन बातों पर बात करेंगे",
+    topics: {
+      education: "आपकी पढ़ाई",
+      familyOccupation: "आपके घर का पारंपरिक काम",
+      currentLivelihood: "आप आज कैसे कमाते हैं",
+      skillsInterests: "आपके हुनर और रुचियाँ",
+      mobility: "आने-जाने और शारीरिक दिक्कतें",
+      workPreference: "अपना काम या नौकरी?",
+      district: "आपका ज़िला और आसपास मिलने वाला काम",
+    },
+    comingSoon:
+      "आवाज़ वाले बातचीत इंजन को अभी जोड़ा जा रहा है। आज यह स्क्रीन आपकी भाषा में बातचीत की योजना दिखाती है।",
+    back: "पीछे",
+    changeLanguage: "भाषा बदलें",
+  },
+  dashboard: {
+    title: "ज़िला डैशबोर्ड",
+    subtitle: "PM-AJAY उपजीविका मैपिंग, सिफ़ारिशें और नतीजे",
+    profiles: "प्रोफ़ाइल",
+    recommendations: "सिफ़ारिशें",
+    enrolled: "प्रशिक्षण में दाखिला",
+    placed: "नौकरी या अपना काम मिला",
+    recentProfiles: "हाल की प्रोफ़ाइल",
+    colName: "नाम",
+    colDistrict: "ज़िला",
+    colEducation: "पढ़ाई",
+    colRecommendation: "पहली सिफ़ारिश",
+    colStatus: "स्थिति",
+    demoBanner:
+      "डेमो डेटा चालू है। असली प्रोफ़ाइल सहेजने के लिए DATABASE_URL जोड़ें और drizzle-kit push चलाएँ।",
+    empty: "अभी कोई प्रोफ़ाइल नहीं। लाभार्थियों की बातचीत के बाद यहाँ दिखेंगी।",
+    backHome: "घर वापस जाएँ",
+  },
+  footer: "टीम EcoLogic - SIH 2026 - PM-AJAY, सामाजिक न्याय और अधिकारिता मंत्रालय",
+};
