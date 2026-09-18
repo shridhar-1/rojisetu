@@ -1,7 +1,11 @@
 // AI lanes for RojiSetu. Same pattern as MediKiosk: a per-task lane list with
 // auto-failover. Keys live in Vercel env only. Failures are VISIBLE: when no
-// lane answers we return a reason string (with HTTP status) so a silent
-// fallback can never masquerade as success.
+// lane answers we return a reason string (with HTTP status and the provider's
+// error body) so a silent fallback can never masquerade as success.
+//
+// Lane order: Groq -> Gemini -> OpenRouter -> deterministic floor.
+// All three are OpenAI-compatible chat endpoints with our own free-signup
+// keys (ToS-compliant services only).
 //
 // Day 2 task: rephrase one interview question warmly in the beneficiary's
 // language. Every candidate is validated by sanitizeCandidate() before a
@@ -9,7 +13,7 @@
 
 import type { Lang } from "./i18n";
 
-export type AIEngineLabel = "ai-groq" | "ai-gemini";
+export type AIEngineLabel = "ai-groq" | "ai-gemini" | "ai-openrouter";
 
 export type AIResult =
   | { text: string; engine: AIEngineLabel; reason: string }
@@ -25,9 +29,14 @@ const LANG_NAMES: Record<Lang, string> = {
   mr: "Marathi (Devanagari script)",
 };
 
-// Free-tier friendly first; older ids kept as fallbacks within each lane.
-const GROQ_MODELS = ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"];
-const GEMINI_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+// Free/developer-tier first. Verified against this account's /models list
+// on 2026-09-18: gpt-oss-20b, gpt-oss-120b, qwen3.8-27b are callable;
+// llama-3.1/3.3 remain only as tier fallbacks.
+const GROQ_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+const GEMINI_MODELS = ["gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash"];
+// OpenRouter rotates its free roster monthly. Defaults verified 2026-09-18;
+// override anytime with the OPENROUTER_MODEL env var (id from openrouter.ai/models).
+const OPENROUTER_DEFAULT_MODELS = ["google/gemma-4-31b-it:free", "qwen/qwen3.8-27b:free", "nvidia/nemotron-3-super-120b-a12b:free"];
 
 const SYSTEM_PROMPT = (langName: string) =>
   `You are RojiSetu, a kind livelihood assistant for rural India. ` +
@@ -67,7 +76,7 @@ async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null
         signal: AbortSignal.timeout(7000),
       });
       if (!res.ok) {
-        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
         lastReason = `groq:${res.status}:${errText}`;
         continue;
       }
@@ -103,13 +112,13 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
                 parts: [{ text: SYSTEM_PROMPT(LANG_NAMES[lang]) + "\n\n" + base }],
               },
             ],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
+            generationConfig: { temperature: 0.3, maxOutputTokens: 240 },
           }),
           signal: AbortSignal.timeout(7000),
         }
       );
       if (!res.ok) {
-        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
         lastReason = `gemini:${res.status}:${errText}`;
         continue;
       }
@@ -126,10 +135,55 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
   return { text: null, reason: lastReason };
 }
 
+async function laneOpenRouter(base: string, lang: Lang): Promise<{ text: string | null; reason: string }> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return { text: null, reason: "openrouter:no-key" };
+  const override = process.env.OPENROUTER_MODEL;
+  const models = override ? [override, ...OPENROUTER_DEFAULT_MODELS] : OPENROUTER_DEFAULT_MODELS;
+  let lastReason = "openrouter:no-attempt";
+  for (const model of models) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+          "HTTP-Referer": "https://rojisetu.vercel.app",
+          "X-Title": "RojiSetu",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.3,
+          max_tokens: 140,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT(LANG_NAMES[lang]) },
+            { role: "user", content: base },
+          ],
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) {
+        const errText = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
+        lastReason = `openrouter:${res.status}:${errText}`;
+        continue;
+      }
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const text = data.choices?.[0]?.message?.content ?? "";
+      if (looksSane(text)) return { text: text.trim(), reason: `openrouter:${model}` };
+      lastReason = "openrouter:bad-output";
+    } catch {
+      lastReason = "openrouter:timeout-or-network";
+    }
+  }
+  return { text: null, reason: lastReason };
+}
+
 /**
- * Rephrase one deterministic question via the AI lanes. Groq first, Gemini
- * second. On failure returns a readable reason (never throws) so the caller
- * ships the deterministic question and can report exactly why.
+ * Rephrase one deterministic question via the AI lanes.
+ * Groq -> Gemini -> OpenRouter -> null (deterministic floor ships).
+ * On failure returns readable reasons (never throws).
  */
 export async function rephraseQuestionWithAI(opts: {
   base: string;
@@ -139,5 +193,11 @@ export async function rephraseQuestionWithAI(opts: {
   if (groq.text) return { text: groq.text, engine: "ai-groq", reason: groq.reason };
   const gemini = await laneGemini(opts.base, opts.lang);
   if (gemini.text) return { text: gemini.text, engine: "ai-gemini", reason: gemini.reason };
-  return { text: null, engine: null, reason: `${groq.reason} | ${gemini.reason}` };
+  const openrouter = await laneOpenRouter(opts.base, opts.lang);
+  if (openrouter.text) return { text: openrouter.text, engine: "ai-openrouter", reason: openrouter.reason };
+  return {
+    text: null,
+    engine: null,
+    reason: `${groq.reason} | ${gemini.reason} | ${openrouter.reason}`,
+  };
 }
