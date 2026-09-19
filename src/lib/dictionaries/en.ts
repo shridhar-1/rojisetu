@@ -30,6 +30,23 @@ export const en = {
       "The voice conversation engine is being connected next. Today this screen shows the conversation plan in your language.",
     back: "Back",
     changeLanguage: "Change language",
+    chat: {
+      typePlaceholder: "Type your answer…",
+      send: "Send",
+      retryNote: "No reply. Check your connection and try again.",
+    },
+    review: {
+      title: "Check your details",
+      note: "Tap any item to change it. You will re-answer just that one question.",
+      notAnswered: "Not answered",
+      warning:
+        "You earlier gave a different answer for this. We kept the latest one; the official will confirm it.",
+      finish: "Confirm and finish",
+      startOver: "Start over",
+      thanksTitle: "Thank you!",
+      thanksNote:
+        "Your profile is saved in this demo session. Training recommendations will appear here in the next build step.",
+    },
   },
   dashboard: {
     title: "District dashboard",

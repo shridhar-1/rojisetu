@@ -1,16 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LANGS, getDict, type Lang } from "@/lib/i18n";
+import {
+  TOPIC_ORDER,
+  questionForTopic,
+  topicLabel,
+  type ChatMessage,
+  type Profile,
+  type Topic,
+} from "@/lib/chat-extract";
 
-// Beneficiary kiosk flow. Day 1 scope: language selection plus the
-// conversation plan in the chosen language. The voice interview engine
-// (Day 2) plugs into this same screen.
+// Beneficiary kiosk flow: language picker -> voice-ready chat interview ->
+// tap-to-fix review -> thanks. The server stays stateless; this client holds
+// the conversation history and the engine recomputes the profile every turn.
+// Typed text for now; the voice button lands on Day 6.
+
+type Bubble = ChatMessage & { engine?: string };
+type Screen = "picker" | "chat" | "review" | "thanks";
+
 export default function KioskPage() {
   const [lang, setLang] = useState<Lang | null>(null);
+  const [screen, setScreen] = useState<Screen>("picker");
+  const [history, setHistory] = useState<Bubble[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const d = getDict(lang ?? "en");
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [history, busy]);
+
+  async function askServer(nextHistory: Bubble[], chosen: Lang) {
+    setBusy(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: chosen, history: nextHistory }),
+      });
+      const data = await res.json();
+      if (!data || data.ok !== true) throw new Error("bad response");
+      const reply: Bubble = {
+        role: "assistant",
+        text: data.reply,
+        engine: data.engine,
+      };
+      setHistory([...nextHistory, reply]);
+      setProfile(data.profile);
+      setBusy(false);
+      if (data.done === true) setScreen("review");
+    } catch {
+      setBusy(false);
+      setError(true);
+    }
+  }
+
+  function startInterview(chosen: Lang) {
+    setLang(chosen);
+    setHistory([]);
+    setProfile(null);
+    setScreen("chat");
+    void askServer([], chosen);
+  }
+
+  function send() {
+    const text = input.trim();
+    if (!text || busy || lang === null) return;
+    const next: Bubble[] = [...history, { role: "user", text }];
+    setHistory(next);
+    setInput("");
+    void askServer(next, lang);
+  }
+
+  // Review screen tap-to-fix: ask that one question again inside the chat.
+  // markTopic() on the engine overwrites the value and logs a warning when
+  // the answer actually changed, exactly like a mid-interview correction.
+  function reask(topic: Topic) {
+    if (lang === null) return;
+    const q: Bubble = {
+      role: "assistant",
+      text: questionForTopic(topic, lang),
+      engine: "deterministic",
+    };
+    setHistory([...history, q]);
+    setScreen("chat");
+  }
+
+  function startOver() {
+    setLang(null);
+    setHistory([]);
+    setProfile(null);
+    setInput("");
+    setError(false);
+    setScreen("picker");
+  }
+
+  const topics = profile ? profile.topics : null;
 
   return (
     <>
@@ -25,7 +118,7 @@ export default function KioskPage() {
       </header>
 
       <main className="container">
-        {lang === null ? (
+        {screen === "picker" && (
           <section className="card" aria-label={getDict("en").picker.label}>
             <h1 className="page-title">
               {LANGS.map((l) => l.nativeName).join(" · ")}
@@ -36,46 +129,123 @@ export default function KioskPage() {
                 <button
                   key={l.code}
                   className="lang-btn"
-                  onClick={() => setLang(l.code)}
+                  onClick={() => startInterview(l.code)}
                 >
                   {l.nativeName}
                 </button>
               ))}
             </div>
           </section>
-        ) : (
-          <>
-            <section className="card">
-              <h1 className="page-title">{d.kiosk.welcome}</h1>
-              <p className="page-sub">{d.kiosk.introLine}</p>
+        )}
 
-              <h2 style={{ fontSize: "1.05rem", color: "#14532d" }}>
-                {d.kiosk.topicsTitle}
-              </h2>
-              <ol className="topic-list">
-                {Object.values(d.kiosk.topics).map((topic, i) => (
-                  <li key={i}>
-                    <span className="topic-num">{i + 1}</span>
-                    <span>{topic}</span>
-                  </li>
-                ))}
-              </ol>
-
-              <div className="note">{d.kiosk.comingSoon}</div>
-
-              <div className="btn-row">
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => setLang(null)}
+        {screen === "chat" && (
+          <section className="card">
+            <div className="chat-list" ref={listRef}>
+              {history.map((m, i) => (
+                <div
+                  key={i}
+                  className={`bubble ${
+                    m.role === "assistant" ? "bubble-assistant" : "bubble-user"
+                  }`}
                 >
-                  {d.kiosk.changeLanguage}
-                </button>
-                <Link href="/" className="btn btn-ghost">
-                  {d.kiosk.back}
-                </Link>
+                  {m.text}
+                  {m.role === "assistant" && m.engine && (
+                    <span className="engine-badge">{m.engine}</span>
+                  )}
+                </div>
+              ))}
+              {busy && <div className="typing">…</div>}
+            </div>
+
+            {error && <div className="error-note">{d.kiosk.chat.retryNote}</div>}
+
+            <div className="chat-input-row">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") send();
+                }}
+                placeholder={d.kiosk.chat.typePlaceholder}
+                disabled={busy}
+                autoFocus
+              />
+              <button
+                className="btn btn-primary"
+                onClick={send}
+                disabled={busy || !input.trim()}
+              >
+                {d.kiosk.chat.send}
+              </button>
+            </div>
+
+            <div className="btn-row">
+              <button className="btn btn-ghost" onClick={startOver}>
+                {d.kiosk.changeLanguage}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {screen === "review" && topics && (
+          <section className="card">
+            <h1 className="page-title">{d.kiosk.review.title}</h1>
+            <p className="page-sub">{d.kiosk.review.note}</p>
+
+            {profile && profile.warnings.length > 0 && (
+              <div className="warn-box">
+                {profile.warnings.map((w, i) => (
+                  <div key={i}>
+                    <strong>{topicLabel(w.topic, lang ?? "en")}</strong>:{" "}
+                    {d.kiosk.review.warning}{" "}
+                    <em>
+                      &ldquo;{w.previous}&rdquo; → &ldquo;{w.latest}&rdquo;
+                    </em>
+                  </div>
+                ))}
               </div>
-            </section>
-          </>
+            )}
+
+            <div className="chip-grid">
+              {TOPIC_ORDER.map((t) => (
+                <button key={t} className="fix-chip" onClick={() => reask(t)}>
+                  <div className="chip-topic">{topicLabel(t, lang ?? "en")}</div>
+                  <div className="chip-value">
+                    {topics[t].status === "known" && topics[t].value
+                      ? topics[t].value
+                      : d.kiosk.review.notAnswered}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="btn-row">
+              <button
+                className="btn btn-primary"
+                onClick={() => setScreen("thanks")}
+              >
+                {d.kiosk.review.finish}
+              </button>
+              <button className="btn btn-ghost" onClick={startOver}>
+                {d.kiosk.review.startOver}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {screen === "thanks" && (
+          <section className="card">
+            <h1 className="page-title">{d.kiosk.review.thanksTitle}</h1>
+            <p className="page-sub">{d.kiosk.review.thanksNote}</p>
+            <div className="btn-row">
+              <button className="btn btn-ghost" onClick={startOver}>
+                {d.kiosk.review.startOver}
+              </button>
+              <Link href="/" className="btn btn-ghost">
+                {d.kiosk.back}
+              </Link>
+            </div>
+          </section>
         )}
 
         <footer className="app-footer">{d.footer}</footer>

@@ -434,6 +434,15 @@ export function nextQuestion(
   return null;
 }
 
+/**
+ * Deterministic question for an explicit topic. Used by the review screen's
+ * tap-to-fix chips: asking it re-marks that one topic via the same
+ * questionTopic() classification as everything else.
+ */
+export function questionForTopic(topic: Topic, lang: Lang): string {
+  return QUESTIONS[lang][topic];
+}
+
 // ---------------------------------------------------------------------------
 // Deterministic turn builder
 // ---------------------------------------------------------------------------

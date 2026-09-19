@@ -355,3 +355,129 @@ p.page-sub {
   color: var(--muted);
   margin-bottom: 18px;
 }
+
+/* Chat interview */
+.chat-list {
+  height: 46vh;
+  min-height: 300px;
+  overflow-y: auto;
+  padding: 8px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble-assistant {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  align-self: flex-start;
+  border-top-left-radius: 4px;
+}
+
+.bubble-user {
+  background: var(--green-700);
+  color: #ffffff;
+  align-self: flex-end;
+  border-top-right-radius: 4px;
+}
+
+.engine-badge {
+  display: inline-block;
+  margin: 6px 0 0 8px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  vertical-align: middle;
+}
+
+.typing {
+  color: var(--muted);
+  font-style: italic;
+  padding: 4px 8px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  min-height: 52px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.chat-input-row input:focus {
+  border-color: var(--green-700);
+  outline: none;
+}
+
+/* Review screen */
+.chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.fix-chip {
+  text-align: left;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  min-height: 64px;
+}
+
+.fix-chip:hover {
+  border-color: var(--green-700);
+}
+
+.fix-chip .chip-topic {
+  font-size: 0.78rem;
+  color: var(--green-900);
+  font-weight: 700;
+}
+
+.fix-chip .chip-value {
+  font-size: 0.95rem;
+  margin-top: 3px;
+}
+
+.warn-box {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  font-size: 0.9rem;
+}
+
+.error-note {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
