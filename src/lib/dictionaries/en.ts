@@ -38,7 +38,11 @@ export const en = {
     review: {
       title: "Check your details",
       note: "Tap any item to change it. You will re-answer just that one question.",
-      notAnswered: "Not answered",
+            notAnswered: "Not answered",
+      saveState: {
+        saved: "Your profile is saved. The district official can now see it.",
+        notSaved: "The database is not connected yet, so your profile is kept in this session only.",
+      },
       warning:
         "You earlier gave a different answer for this. We kept the latest one; the official will confirm it.",
       finish: "Confirm and finish",

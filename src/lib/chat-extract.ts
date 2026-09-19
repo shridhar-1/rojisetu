@@ -337,6 +337,25 @@ const RE_WAGE =
 const RE_EITHER =
   /(both|either|any|anything|दोनों|कोई भी|जो भी|দুটোই|যেকোনো|ಎರಡೂ|ಯಾವುದಾದರೂ|இரண்டும்|எதுவாயினும்|రెండూ|ఏదైనా|दोन्ही|काहीही)/i;
 
+// Spelled-out ordinals in Indic scripts ("दहावी" = 10th, "बारहवीं" = 12th).
+// Small, honest coverage: Devanagari ordinals 5-12 plus Bengali দশম.
+const EDU_SPELLED: [string, number][] = [
+  ["पाचवी", 5],
+  ["छठी", 6],
+  ["सातवी", 7],
+  ["आठवी", 8],
+  ["नववी", 9],
+  ["दिसावी", 10],
+  ["दसवीं", 10],
+  ["दसवी", 10],
+  ["दहावी", 10],
+  ["দশম", 10],
+  ["अकरावी", 11],
+  ["ग्यारहवीं", 11],
+  ["बारावी", 12],
+  ["बारहवीं", 12],
+];
+
 function extractCanonical(topic: Topic, raw: string): string | null {
   const t = normalize(raw);
   if (topic === "education") {
@@ -344,10 +363,13 @@ function extractCanonical(topic: Topic, raw: string): string | null {
     if (RE_EDU_ITI.test(t)) return "iti";
     if (RE_EDU_DIPLOMA.test(t)) return "diploma";
     if (RE_EDU_GRAD.test(t)) return "graduate";
-    const m = t.match(RE_EDU_CLASS);
+        const m = t.match(RE_EDU_CLASS);
     if (m && m[1]) {
       const n = parseInt(m[1], 10);
       if (n >= 1 && n <= 12) return "class-" + n;
+    }
+    for (const [word, n] of EDU_SPELLED) {
+      if (t.includes(word)) return "class-" + n;
     }
     return null;
   }

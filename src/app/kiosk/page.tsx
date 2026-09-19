@@ -28,7 +28,8 @@ export default function KioskPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
+  const [saveResult, setSaveResult] = useState<"saved" | "notSaved" | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const d = getDict(lang ?? "en");
 
@@ -94,13 +95,39 @@ export default function KioskPage() {
     setScreen("chat");
   }
 
-  function startOver() {
+   function startOver() {
     setLang(null);
     setHistory([]);
     setProfile(null);
+    setSaveResult(null);
     setInput("");
     setError(false);
     setScreen("picker");
+  }
+
+  // Explicit beneficiary action ("Confirm and finish") = consent to save.
+  // The thanks screen honestly reports whether the database took the row.
+  async function finishInterview() {
+    if (lang === null) {
+      setScreen("thanks");
+      return;
+    }
+    try {
+      const res = await fetch("/api/beneficiaries/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lang,
+          profile,
+          transcript: history.map((m) => ({ role: m.role, text: m.text })),
+        }),
+      });
+      const data = await res.json();
+      setSaveResult(data && data.saved === true ? "saved" : "notSaved");
+    } catch {
+      setSaveResult("notSaved");
+    }
+    setScreen("thanks");
   }
 
   const topics = profile ? profile.topics : null;
@@ -222,7 +249,7 @@ export default function KioskPage() {
             <div className="btn-row">
               <button
                 className="btn btn-primary"
-                onClick={() => setScreen("thanks")}
+                onClick={() => void finishInterview()}
               >
                 {d.kiosk.review.finish}
               </button>

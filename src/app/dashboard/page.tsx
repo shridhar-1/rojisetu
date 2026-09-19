@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { desc } from "drizzle-orm";
 import { Logo } from "@/components/logo";
 import { LANGS, getDict, toLang } from "@/lib/i18n";
-import { demoProfiles } from "@/lib/demo-data";
+import { demoProfiles, type DemoProfile } from "@/lib/demo-data";
+import { getDb, schema } from "@/db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,18 +11,52 @@ type Props = {
   searchParams: { lang?: string };
 };
 
-// Official dashboard for the district corporation. Day 1 scope:
-// summary stats plus a profiles table. Rows come from demo data while
-// DEMO_MODE=true; real rows come from PostgreSQL once Day 2-5 land.
-export default function DashboardPage({ searchParams }: Props) {
+type Row = DemoProfile;
+
+// Official dashboard for the district corporation. Day 3: reads real
+// beneficiary rows when the database is attached; falls back to demo rows
+// (DEMO_MODE) or the honest empty state otherwise. Light payload: the list
+// carries no transcripts, matching the MediKiosk list-API pattern rule.
+export default async function DashboardPage({ searchParams }: Props) {
   const lang = toLang(searchParams.lang);
   const d = getDict(lang);
   const demoMode = process.env.DEMO_MODE === "true";
-  const profiles = demoMode ? demoProfiles : [];
+
+  let realRows: Row[] = [];
+  let dbLive = false;
+  const db = getDb();
+  if (db) {
+    try {
+      const rows = await db
+        .select({
+          id: schema.beneficiaries.id,
+          lang: schema.beneficiaries.lang,
+          education: schema.beneficiaries.education,
+          district: schema.beneficiaries.district,
+        })
+        .from(schema.beneficiaries)
+        .orderBy(desc(schema.beneficiaries.createdAt))
+        .limit(20);
+      dbLive = true;
+      realRows = rows.map((b) => ({
+        name: `Profile ${b.id.slice(0, 6)}`,
+        district: b.district ?? "-",
+        education: b.education ?? "-",
+        topRecommendation: "-",
+        status: "recommended",
+      }));
+    } catch {
+      dbLive = false;
+    }
+  }
+
+  const useReal = realRows.length > 0;
+  const profiles: Row[] = useReal ? realRows : demoMode ? demoProfiles : [];
+  const demoBanner = !useReal && demoMode;
 
   const stats = {
     profiles: profiles.length,
-    recommendations: profiles.filter((p) => p.topRecommendation).length,
+    recommendations: profiles.filter((p) => p.topRecommendation !== "-").length,
     enrolled: profiles.filter((p) => p.status === "enrolled").length,
     placed: profiles.filter((p) => p.status === "placed").length,
   };
@@ -53,7 +89,7 @@ export default function DashboardPage({ searchParams }: Props) {
         <h1 className="page-title">{d.dashboard.title}</h1>
         <p className="page-sub">{d.dashboard.subtitle}</p>
 
-        {demoMode && <div className="badge-demo">{d.dashboard.demoBanner}</div>}
+        {demoBanner && <div className="badge-demo">{d.dashboard.demoBanner}</div>}
 
         <div className="stat-grid">
           <div className="stat">
@@ -95,8 +131,8 @@ export default function DashboardPage({ searchParams }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {profiles.map((p) => (
-                  <tr key={p.name}>
+                {profiles.map((p, i) => (
+                  <tr key={p.name + i}>
                     <td>{p.name}</td>
                     <td>{p.district}</td>
                     <td>{p.education}</td>
