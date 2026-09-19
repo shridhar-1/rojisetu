@@ -262,7 +262,10 @@ export default function KioskPage() {
 
         {screen === "thanks" && (
           <section className="card">
-            <h1 className="page-title">{d.kiosk.review.thanksTitle}</h1>
+                        <h1 className="page-title">{d.kiosk.review.thanksTitle}</h1>
+            {saveResult && (
+              <p className="page-sub">{d.kiosk.review.saveState[saveResult]}</p>
+            )}
             <p className="page-sub">{d.kiosk.review.thanksNote}</p>
             <div className="btn-row">
               <button className="btn btn-ghost" onClick={startOver}>
