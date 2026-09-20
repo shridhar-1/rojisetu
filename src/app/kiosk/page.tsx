@@ -20,7 +20,8 @@ import {
 // Voice drives a hands-free loop when Voice replies are ON.
 
 type Bubble = ChatMessage & { engine?: string };
-type Screen = "picker" | "chat" | "review" | "thanks";
+type Screen = "picker" | "chat" | "review" | "thanks" | "voice";
+type VoicePhase = "listening" | "thinking" | "speaking";
 
 // Day 6 voice layer. The same interview engine drives it: speech-to-text
 // becomes the user turn, replies can be read out. Browser Web Speech API -
@@ -46,8 +47,10 @@ type SpeechRecognitionLike = {
     | null;
   onstart: (() => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+   onerror: (() => void) | null;
   start: () => void;
+  abort?: () => void;
+  stop?: () => void;
 };
 
 function speakReply(text: string, langCode: Lang, onend?: () => void) {
@@ -110,13 +113,17 @@ export default function KioskPage() {
   const historyRef = useRef<Bubble[]>([]);
   const busyRef = useRef(false);
   const listeningRef = useRef(false);
-  const langRef = useRef<Lang | null>(null);
+   const langRef = useRef<Lang | null>(null);
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>("listening");
+  const screenRef = useRef<Screen>("picker");
+  const recogRef = useRef<SpeechRecognitionLike | null>(null);
   const d = getDict(lang ?? "en");
 
   useEffect(() => { historyRef.current = history; }, [history]);
   useEffect(() => { busyRef.current = busy; }, [busy]);
   useEffect(() => { listeningRef.current = listening; }, [listening]);
-  useEffect(() => { langRef.current = lang; }, [lang]);
+    useEffect(() => { langRef.current = lang; }, [lang]);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
 
    useEffect(() => {
     const el = listRef.current;
@@ -131,9 +138,10 @@ export default function KioskPage() {
     }
   }, [busy, screen]);
 
-  async function askServer(nextHistory: Bubble[], chosen: Lang) {
+    async function askServer(nextHistory: Bubble[], chosen: Lang) {
     setBusy(true);
     setError(false);
+    if (screenRef.current === "voice") setVoicePhase("thinking");
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -149,15 +157,23 @@ export default function KioskPage() {
       };
             setHistory([...nextHistory, reply]);
       setProfile(data.profile);
-            if (voiceOnRef.current) {
-        // Hands-free loop: read the reply aloud, then re-open the mic for
-        // the next answer - until the interview reports done.
-        speakReply(reply.text, chosen, data.done ? undefined : () => {
-          window.setTimeout(() => startListening(), 200);
+                  const inVoice = voiceOnRef.current && screenRef.current === "voice";
+      if (voiceOnRef.current) {
+        // Hands-free loop; in voice mode the orb phase shifts along the way.
+        if (inVoice) setVoicePhase("speaking");
+        speakReply(reply.text, chosen, () => {
+          if (!voiceOnRef.current) return; // user navigated away mid-speech
+          if (screenRef.current === "voice") {
+            if (data.done) setScreen("review");
+            else window.setTimeout(() => startListening(), 200);
+          } else if (!data.done) {
+            window.setTimeout(() => startListening(), 200);
+          }
         });
       }
       setBusy(false);
-      if (data.done === true) setScreen("review");
+      // In voice mode the closing line plays first, review arrives on TTS end.
+      if (data.done === true && !inVoice) setScreen("review");
     } catch {
       setBusy(false);
       setError(true);
@@ -201,7 +217,8 @@ export default function KioskPage() {
       return;
     }
     try {
-      const r = new Ctor();
+     const r = new Ctor();
+      recogRef.current = r;
       r.lang = SPEECH_LANG[chosen];
       r.interimResults = false;
       r.maxAlternatives = 1;
@@ -217,14 +234,59 @@ export default function KioskPage() {
           void askServer(next, langRef.current);
         }
       };
-      r.onstart = () => setListening(true);
+            r.onstart = () => {
+        setListening(true);
+        if (screenRef.current === "voice") setVoicePhase("listening");
+      };
       r.onend = () => setListening(false);
-      r.onerror = () => setListening(false);
+      r.onerror = () => {
+        setListening(false);
+        // Voice mode stays open on mic hiccups so the user can retry.
+        if (screenRef.current === "voice") setVoicePhase("listening");
+      };
       r.start();
     } catch {
       setVoiceNote(true);
     }
   }
+    // Voice mode (Day 7c): immersive full screen, Gemini-style. Entering it
+  // implies voice replies ON for the duration; leaving restores the chat.
+  function enterVoice() {
+    if (langRef.current === null) return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) {
+      setVoiceNote(true);
+      return;
+    }
+    voiceOnRef.current = true;
+    setVoiceOn(true);
+    setVoicePhase("listening");
+    setScreen("voice");
+    window.setTimeout(() => startListening(), 180);
+  }
+
+  function exitVoice() {
+    try {
+      recogRef.current?.abort?.();
+      recogRef.current?.stop?.();
+    } catch {
+      // no-op
+    }
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      // no-op
+    }
+    voiceOnRef.current = false;
+    setVoiceOn(false);
+    setListening(false);
+    setScreen("chat");
+  }
+
   function toggleVoice() {
     voiceOnRef.current = !voiceOnRef.current;
     setVoiceOn(voiceOnRef.current);
@@ -301,9 +363,11 @@ export default function KioskPage() {
   }
 
    const topics = profile ? profile.topics : null;
-  const answeredCount = topics
+    const answeredCount = topics
     ? TOPIC_ORDER.filter((t) => topics[t].status === "known").length
     : 0;
+  const lastAssistant =
+    [...history].reverse().find((m) => m.role === "assistant")?.text ?? "";
 
   return (
     <>
@@ -404,7 +468,12 @@ export default function KioskPage() {
               </button>
             </div>
 
-                        <div className="btn-row">
+                                    <div className="btn-row">
+              <button className="btn btn-primary btn-voice-cta" onClick={enterVoice}>
+                🎙 {d.kiosk.voice.startVoice}
+              </button>
+            </div>
+            <div className="btn-row">
               <button className="btn btn-ghost" onClick={toggleVoice} title={d.kiosk.chat.micSpeak}>
                 {voiceOn ? d.kiosk.chat.soundOn : d.kiosk.chat.soundOff}
               </button>
@@ -501,8 +570,50 @@ export default function KioskPage() {
           </section>
         )}
 
-        <footer className="app-footer">{d.footer}</footer>
+                <footer className="app-footer">{d.footer}</footer>
       </main>
+
+      {screen === "voice" && (
+        <section className="voice-stage" aria-label={d.kiosk.voice.startVoice}>
+          <div className="voice-status">
+            {voicePhase === "listening"
+              ? d.kiosk.voice.statusListening
+              : voicePhase === "thinking"
+                ? d.kiosk.voice.statusThinking
+                : d.kiosk.voice.statusSpeaking}
+          </div>
+
+          <button
+            className={`voice-orb ${voicePhase}`}
+            onClick={() => {
+              if (voicePhase === "listening") {
+                try {
+                  recogRef.current?.abort?.();
+                } catch {
+                  // no-op
+                }
+                setListening(false);
+              } else {
+                startListening();
+              }
+            }}
+            aria-label={d.kiosk.chat.micSpeak}
+          >
+            <span className="voice-ring r1" />
+            <span className="voice-ring r2" />
+            <span className="voice-ring r3" />
+            <span className="voice-orb-core">
+              {voicePhase === "thinking" ? "⏳" : voicePhase === "speaking" ? "🔊" : "🎤"}
+            </span>
+          </button>
+
+          {lastAssistant && <div className="voice-subtitle">{lastAssistant}</div>}
+
+          <button className="btn btn-ghost voice-exit" onClick={exitVoice}>
+            ✕ {d.kiosk.voice.exitVoice}
+          </button>
+        </section>
+      )}
     </>
   );
 }

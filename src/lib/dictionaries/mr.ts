@@ -39,6 +39,13 @@ export const mr: Dict = {
       soundOn: "🔊 आवाज उत्तरे: चालू",
       soundOff: "🔈 आवाज उत्तरे: बंद",
     },
+    voice: {
+      statusListening: "ऐकत आहे — आता बोला",
+      statusThinking: "विचार करत आहे…",
+      statusSpeaking: "बोलत आहे — ऐका",
+      startVoice: "आवाजात संवाद सुरू करा",
+      exitVoice: "आवाज बंद करून मागे जा",
+    },
     review: {
       title: "तुमची माहिती तपासा",
       note: "काही बदलायचे असल्यास त्यावर टॅप करा. तुम्हाला फक्त तोच एक प्रश्न पुन्हा विचारला जाईल.",

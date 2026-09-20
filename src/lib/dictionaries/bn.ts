@@ -39,6 +39,13 @@ export const bn: Dict = {
       soundOn: "🔊 ভয়েস উত্তর: চালু",
       soundOff: "🔈 ভয়েস উত্তর: বন্ধ",
     },
+     voice: {
+      statusListening: "শুনছি — এবার বলুন",
+      statusThinking: "ভাবছি…",
+      statusSpeaking: "বলছি — শুনুন",
+      startVoice: "কণ্ঠে কথোপকথন শুরু করুন",
+      exitVoice: "ভয়েস বন্ধ করে ফিরে যান",
+    },
     review: {
       title: "আপনার তথ্য যাচাই করুন",
       note: "যেকোনো আইটেম বদলাতে ওটিতে টিপ দিন। আপনাকে শুধু সেই একটি প্রশ্নের আবার উত্তর দিতে হবে।",
