@@ -16,7 +16,8 @@ import {
 // Beneficiary kiosk flow: language picker -> voice-ready chat interview ->
 // tap-to-fix review -> thanks. The server stays stateless; this client holds
 // the conversation history and the engine recomputes the profile every turn.
-// Typed text for now; the voice button lands on Day 6.
+// Beneficiary kiosk flow: interview -> review -> thanks (+ trades with reasons).
+// Voice drives a hands-free loop when Voice replies are ON.
 
 type Bubble = ChatMessage & { engine?: string };
 type Screen = "picker" | "chat" | "review" | "thanks";
@@ -49,19 +50,28 @@ type SpeechRecognitionLike = {
   start: () => void;
 };
 
-function speakReply(text: string, langCode: Lang) {
+function speakReply(text: string, langCode: Lang, onend?: () => void) {
+  const fireEnd = () => {
+    if (onend) onend();
+  };
   try {
     const synth = window.speechSynthesis;
-    if (!synth) return;
+    if (!synth) {
+      fireEnd();
+      return;
+    }
     synth.cancel(); // never queue monotone stacking
     const u = new SpeechSynthesisUtterance(text);
     u.lang = SPEECH_LANG[langCode];
+    u.onend = fireEnd;
+    u.onerror = fireEnd;
     const match = synth
       .getVoices()
       .find((v) => v.lang && v.lang.toLowerCase().startsWith(langCode));
     if (match) u.voice = match;
     synth.speak(u);
   } catch {
+    fireEnd();
     // TTS absence is a silent no-op; the text stays readable.
   }
 }
@@ -91,14 +101,23 @@ export default function KioskPage() {
   const [voiceOn, setVoiceOn] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceNote, setVoiceNote] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const voiceOnRef = useRef(false); // async callbacks read a ref, not state
   const d = getDict(lang ?? "en");
 
-  useEffect(() => {
+   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [history, busy]);
+
+  // UX fix: the box takes focus back after every reply, so the user never
+  // has to tap the message space again to keep talking.
+  useEffect(() => {
+    if (screen === "chat" && !busy) {
+      inputRef.current?.focus();
+    }
+  }, [busy, screen]);
 
   async function askServer(nextHistory: Bubble[], chosen: Lang) {
     setBusy(true);
@@ -118,7 +137,13 @@ export default function KioskPage() {
       };
             setHistory([...nextHistory, reply]);
       setProfile(data.profile);
-      if (voiceOnRef.current) speakReply(reply.text, chosen);
+            if (voiceOnRef.current) {
+        // Hands-free loop: read the reply aloud, then re-open the mic for
+        // the next answer - until the interview reports done.
+        speakReply(reply.text, chosen, data.done ? undefined : () => {
+          window.setTimeout(() => startListening(), 200);
+        });
+      }
       setBusy(false);
       if (data.done === true) setScreen("review");
     } catch {
@@ -146,8 +171,13 @@ export default function KioskPage() {
 
   // Voice: recognised text posts as a normal user turn - the engine,
   // never-re-ask rule and review fix all behave exactly as with typing.
-  function startListening() {
+    function startListening() {
     if (busy || listening || lang === null) return;
+    try {
+      window.speechSynthesis?.cancel(); // never listen while talking
+    } catch {
+      // no-op
+    }
     const w = window as unknown as {
       SpeechRecognition?: new () => SpeechRecognitionLike;
       webkitSpeechRecognition?: new () => SpeechRecognitionLike;
@@ -299,8 +329,13 @@ export default function KioskPage() {
                   className={`bubble ${
                     m.role === "assistant" ? "bubble-assistant" : "bubble-user"
                   }`}
-                >
-                  {m.text}
+                                >
+                  {m.role === "assistant" && (
+                    <span className="bubble-avatar" aria-hidden="true">
+                      🤝
+                    </span>
+                  )}
+                  <span className="bubble-text">{m.text}</span>
                   {m.role === "assistant" && m.engine && (
                     <span className="engine-badge">{m.engine}</span>
                   )}
@@ -324,7 +359,8 @@ export default function KioskPage() {
               >
                 🎤
               </button>
-              <input
+                            <input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
