@@ -545,3 +545,17 @@ body { background: linear-gradient(180deg, #f0fdf4 0%, #fefce7 55%, #fdf2f8 100%
 .lang-strip a { text-decoration: none; }
 .lang-strip a.active { background: #14532d; color: #ffffff; }
 .app-footer { color: #6b7280; font-size: 0.8rem; margin-top: 28px; }
+/* ============ Day 7b: UX round 2 ============ */
+.progress-label { font-size: 0.78rem; font-weight: 700; color: #15803d; text-align: right; margin-bottom: 4px; }
+.progress-track { height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #84cc16); border-radius: 999px; transition: width 0.35s ease; }
+.chat-input-row { position: sticky; bottom: 8px; background: rgba(255, 255, 255, 0.96); padding: 8px; border-radius: 14px; border: 1px solid #d1fae5; box-shadow: 0 -8px 24px -14px rgba(20, 83, 45, 0.5); z-index: 5; }
+.typing { display: inline-flex; gap: 4px; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid #bbf7d0; border-radius: 12px; color: #15803d; font-weight: 700; }
+.typing::after { content: "..."; display: inline-block; animation: typing-dots 1.2s steps(4, end) infinite; overflow: hidden; width: 0; vertical-align: bottom; }
+@keyframes typing-dots { to { width: 1.2em; } }
+@media (max-width: 520px) {
+  .page-title { font-size: 1.2rem; }
+  .card { padding: 16px 12px; }
+  .lang-btn { min-height: 60px; font-size: 1.02rem; }
+}
+.btn-row .btn-primary { flex: 1 1 auto; font-size: 1.05rem; min-height: 52px; }

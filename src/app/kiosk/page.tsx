@@ -103,8 +103,20 @@ export default function KioskPage() {
   const [voiceNote, setVoiceNote] = useState(false);
     const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const voiceOnRef = useRef(false); // async callbacks read a ref, not state
+    const voiceOnRef = useRef(false); // async callbacks read a ref, not state
+  // Fresh-state mirrors: voice callbacks fire seconds AFTER renders, when
+  // any captured state would be stale history (the "answer lands on the
+  // previous question" bug). Refs hold the current truth at callback time.
+  const historyRef = useRef<Bubble[]>([]);
+  const busyRef = useRef(false);
+  const listeningRef = useRef(false);
+  const langRef = useRef<Lang | null>(null);
   const d = getDict(lang ?? "en");
+
+  useEffect(() => { historyRef.current = history; }, [history]);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+  useEffect(() => { listeningRef.current = listening; }, [listening]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
 
    useEffect(() => {
     const el = listRef.current;
@@ -169,10 +181,11 @@ export default function KioskPage() {
     void askServer(next, lang);
   }
 
-  // Voice: recognised text posts as a normal user turn - the engine,
-  // never-re-ask rule and review fix all behave exactly as with typing.
     function startListening() {
-    if (busy || listening || lang === null) return;
+    // Guards read refs: this closure may be old (fired by a TTS onend of an
+    // earlier render), but decisions must use TODAY's state.
+    if (busyRef.current || listeningRef.current || langRef.current === null) return;
+    const chosen = langRef.current;
     try {
       window.speechSynthesis?.cancel(); // never listen while talking
     } catch {
@@ -189,16 +202,19 @@ export default function KioskPage() {
     }
     try {
       const r = new Ctor();
-      r.lang = SPEECH_LANG[lang];
+      r.lang = SPEECH_LANG[chosen];
       r.interimResults = false;
       r.maxAlternatives = 1;
       r.onresult = (ev) => {
         const t = ev.results?.[0]?.[0]?.transcript ?? "";
-        const chosen = lang;
-        if (t.trim() && chosen) {
-          const next: Bubble[] = [...history, { role: "user", text: t.trim() }];
+        // Build the turn from historyRef (current), never closure history.
+        if (t.trim() && langRef.current) {
+          const next: Bubble[] = [
+            ...historyRef.current,
+            { role: "user", text: t.trim() },
+          ];
           setHistory(next);
-          void askServer(next, chosen);
+          void askServer(next, langRef.current);
         }
       };
       r.onstart = () => setListening(true);
@@ -209,7 +225,6 @@ export default function KioskPage() {
       setVoiceNote(true);
     }
   }
-
   function toggleVoice() {
     voiceOnRef.current = !voiceOnRef.current;
     setVoiceOn(voiceOnRef.current);
@@ -285,7 +300,10 @@ export default function KioskPage() {
     setScreen("thanks");
   }
 
-  const topics = profile ? profile.topics : null;
+   const topics = profile ? profile.topics : null;
+  const answeredCount = topics
+    ? TOPIC_ORDER.filter((t) => topics[t].status === "known").length
+    : 0;
 
   return (
     <>
@@ -320,8 +338,15 @@ export default function KioskPage() {
           </section>
         )}
 
-        {screen === "chat" && (
+                {screen === "chat" && (
           <section className="card">
+            <div className="progress-label">{answeredCount} / {TOPIC_ORDER.length}</div>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${(answeredCount / TOPIC_ORDER.length) * 100}%` }}
+              />
+            </div>
             <div className="chat-list" ref={listRef}>
               {history.map((m, i) => (
                 <div
