@@ -10,6 +10,10 @@
 // Day 2 task: rephrase one interview question warmly in the beneficiary's
 // language. Every candidate is validated by sanitizeCandidate() before a
 // beneficiary sees it.
+//
+// Day 4: the three lanes now also serve arbitrary JSON-ish tasks through
+// runAICustomTask() (same cascade, same failover, custom system prompt +
+// validator). rephraseQuestionWithAI keeps its exact Day-2 behaviour.
 
 import type { Lang } from "./i18n";
 
@@ -52,7 +56,22 @@ function looksSane(text: string): boolean {
   return true;
 }
 
-async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null; reason: string }> {
+// Per-task overrides; defaults reproduce the Day-2 rephrase behaviour.
+export interface LaneTask {
+  system?: string;
+  user: string;
+  maxTokens?: number;
+  validate?: (text: string) => boolean;
+}
+
+function taskSystem(task: LaneTask, lang: Lang): string {
+  return task.system ?? SYSTEM_PROMPT(LANG_NAMES[lang]);
+}
+function taskValidate(task: LaneTask): (t: string) => boolean {
+  return task.validate ?? looksSane;
+}
+
+async function laneGroq(task: LaneTask, lang: Lang): Promise<{ text: string | null; reason: string }> {
   const key = process.env.GROQ_API_KEY;
   if (!key) return { text: null, reason: "groq:no-key" };
   let lastReason = "groq:no-attempt";
@@ -67,10 +86,10 @@ async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null
         body: JSON.stringify({
           model,
           temperature: 0.3,
-          max_tokens: 140,
+          max_tokens: task.maxTokens ?? 140,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT(LANG_NAMES[lang]) },
-            { role: "user", content: base },
+            { role: "system", content: taskSystem(task, lang) },
+            { role: "user", content: task.user },
           ],
         }),
         signal: AbortSignal.timeout(7000),
@@ -84,7 +103,7 @@ async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null
         choices?: { message?: { content?: string } }[];
       };
       const text = data.choices?.[0]?.message?.content ?? "";
-      if (looksSane(text)) return { text: text.trim(), reason: `groq:${model}` };
+      if (taskValidate(task)(text)) return { text: text.trim(), reason: `groq:${model}` };
       lastReason = "groq:bad-output";
     } catch {
       lastReason = "groq:timeout-or-network";
@@ -93,7 +112,7 @@ async function laneGroq(base: string, lang: Lang): Promise<{ text: string | null
   return { text: null, reason: lastReason };
 }
 
-async function laneGemini(base: string, lang: Lang): Promise<{ text: string | null; reason: string }> {
+async function laneGemini(task: LaneTask, lang: Lang): Promise<{ text: string | null; reason: string }> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return { text: null, reason: "gemini:no-key" };
   let lastReason = "gemini:no-attempt";
@@ -109,10 +128,13 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
             contents: [
               {
                 role: "user",
-                parts: [{ text: SYSTEM_PROMPT(LANG_NAMES[lang]) + "\n\n" + base }],
+                parts: [{ text: taskSystem(task, lang) + "\n\n" + task.user }],
               },
             ],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 240 },
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: task.maxTokens ?? 240,
+            },
           }),
           signal: AbortSignal.timeout(7000),
         }
@@ -126,7 +148,7 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
         candidates?: { content?: { parts?: { text?: string }[] } }[];
       };
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      if (looksSane(text)) return { text: text.trim(), reason: `gemini:${model}` };
+      if (taskValidate(task)(text)) return { text: text.trim(), reason: `gemini:${model}` };
       lastReason = "gemini:bad-output";
     } catch {
       lastReason = "gemini:timeout-or-network";
@@ -135,7 +157,7 @@ async function laneGemini(base: string, lang: Lang): Promise<{ text: string | nu
   return { text: null, reason: lastReason };
 }
 
-async function laneOpenRouter(base: string, lang: Lang): Promise<{ text: string | null; reason: string }> {
+async function laneOpenRouter(task: LaneTask, lang: Lang): Promise<{ text: string | null; reason: string }> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return { text: null, reason: "openrouter:no-key" };
   const override = process.env.OPENROUTER_MODEL;
@@ -154,10 +176,10 @@ async function laneOpenRouter(base: string, lang: Lang): Promise<{ text: string 
         body: JSON.stringify({
           model,
           temperature: 0.3,
-          max_tokens: 140,
+          max_tokens: task.maxTokens ?? 140,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT(LANG_NAMES[lang]) },
-            { role: "user", content: base },
+            { role: "system", content: taskSystem(task, lang) },
+            { role: "user", content: task.user },
           ],
         }),
         signal: AbortSignal.timeout(8000),
@@ -171,7 +193,7 @@ async function laneOpenRouter(base: string, lang: Lang): Promise<{ text: string 
         choices?: { message?: { content?: string } }[];
       };
       const text = data.choices?.[0]?.message?.content ?? "";
-      if (looksSane(text)) return { text: text.trim(), reason: `openrouter:${model}` };
+      if (taskValidate(task)(text)) return { text: text.trim(), reason: `openrouter:${model}` };
       lastReason = "openrouter:bad-output";
     } catch {
       lastReason = "openrouter:timeout-or-network";
@@ -189,11 +211,34 @@ export async function rephraseQuestionWithAI(opts: {
   base: string;
   lang: Lang;
 }): Promise<AIResult> {
-  const groq = await laneGroq(opts.base, opts.lang);
+  const task: LaneTask = { user: opts.base };
+  const groq = await laneGroq(task, opts.lang);
   if (groq.text) return { text: groq.text, engine: "ai-groq", reason: groq.reason };
-  const gemini = await laneGemini(opts.base, opts.lang);
+  const gemini = await laneGemini(task, opts.lang);
   if (gemini.text) return { text: gemini.text, engine: "ai-gemini", reason: gemini.reason };
-  const openrouter = await laneOpenRouter(opts.base, opts.lang);
+  const openrouter = await laneOpenRouter(task, opts.lang);
+  if (openrouter.text) return { text: openrouter.text, engine: "ai-openrouter", reason: openrouter.reason };
+  return {
+    text: null,
+    engine: null,
+    reason: `${groq.reason} | ${gemini.reason} | ${openrouter.reason}`,
+  };
+}
+
+/**
+ * Generic Day-4 task runner. Same cascade (Groq -> Gemini -> OpenRouter ->
+ * null), same failover, but the CALLER owns the system prompt and validator.
+ * Used by the recommendation ranker; validators should check strict JSON.
+ */
+export async function runAICustomTask(opts: {
+  task: LaneTask;
+  lang: Lang;
+}): Promise<AIResult> {
+  const groq = await laneGroq(opts.task, opts.lang);
+  if (groq.text) return { text: groq.text, engine: "ai-groq", reason: groq.reason };
+  const gemini = await laneGemini(opts.task, opts.lang);
+  if (gemini.text) return { text: gemini.text, engine: "ai-gemini", reason: gemini.reason };
+  const openrouter = await laneOpenRouter(opts.task, opts.lang);
   if (openrouter.text) return { text: openrouter.text, engine: "ai-openrouter", reason: openrouter.reason };
   return {
     text: null,
