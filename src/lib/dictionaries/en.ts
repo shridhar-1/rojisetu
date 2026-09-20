@@ -43,6 +43,8 @@ export const en = {
         saved: "Your profile is saved. The district official can now see it.",
         notSaved: "The database is not connected yet, so your profile is kept in this session only.",
       },
+      recsTitle: "Recommended trades for you",
+      recsLevelLabel: "NSQF level (indicative):",  
       warning:
         "You earlier gave a different answer for this. We kept the latest one; the official will confirm it.",
       finish: "Confirm and finish",

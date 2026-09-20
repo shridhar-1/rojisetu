@@ -21,6 +21,18 @@ import {
 type Bubble = ChatMessage & { engine?: string };
 type Screen = "picker" | "chat" | "review" | "thanks";
 
+// Day 5: top-3 picks shown on the thanks screen, beneficiary-visible.
+type ThanksRec = {
+  recommendations: {
+    roleId: string;
+    roleTitle: string;
+    nsqfLevel: number;
+    rank: number;
+    reasons: string[];
+  }[];
+  engine: string;
+};
+
 export default function KioskPage() {
   const [lang, setLang] = useState<Lang | null>(null);
   const [screen, setScreen] = useState<Screen>("picker");
@@ -30,6 +42,7 @@ export default function KioskPage() {
   const [error, setError] = useState(false);
     const [profile, setProfile] = useState<Profile | null>(null);
   const [saveResult, setSaveResult] = useState<"saved" | "notSaved" | null>(null);
+  const [recs, setRecs] = useState<ThanksRec | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const d = getDict(lang ?? "en");
 
@@ -95,23 +108,27 @@ export default function KioskPage() {
     setScreen("chat");
   }
 
-   function startOver() {
+     function startOver() {
     setLang(null);
     setHistory([]);
     setProfile(null);
     setSaveResult(null);
+    setRecs(null);
     setInput("");
     setError(false);
     setScreen("picker");
   }
 
   // Explicit beneficiary action ("Confirm and finish") = consent to save.
-  // The thanks screen honestly reports whether the database took the row.
+  // Then the engine ranks the catalogue and the thanks screen shows the
+  // top-3 with reasons - recommendations are keyed to the profile, so they
+  // still appear even when the database is down.
   async function finishInterview() {
     if (lang === null) {
       setScreen("thanks");
       return;
     }
+    let beneficiaryId: string | null = null;
     try {
       const res = await fetch("/api/beneficiaries/save", {
         method: "POST",
@@ -124,8 +141,23 @@ export default function KioskPage() {
       });
       const data = await res.json();
       setSaveResult(data && data.saved === true ? "saved" : "notSaved");
+      beneficiaryId =
+        data && typeof data.id === "string" ? (data.id as string) : null;
     } catch {
       setSaveResult("notSaved");
+    }
+    try {
+      const rres = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang, profile, beneficiaryId }),
+      });
+      const rec = await rres.json();
+      if (rec && rec.ok === true && Array.isArray(rec.recommendations)) {
+        setRecs({ recommendations: rec.recommendations, engine: rec.engine });
+      }
+    } catch {
+      // Honest floor: thanks screen stands without recommendations.
     }
     setScreen("thanks");
   }
@@ -266,7 +298,29 @@ export default function KioskPage() {
             {saveResult && (
               <p className="page-sub">{d.kiosk.review.saveState[saveResult]}</p>
             )}
-            <p className="page-sub">{d.kiosk.review.thanksNote}</p>
+                        <p className="page-sub">{d.kiosk.review.thanksNote}</p>
+
+            {recs && recs.recommendations.length > 0 && (
+              <div className="rec-list">
+                <h2 className="rec-head">{d.kiosk.review.recsTitle}</h2>
+                {recs.recommendations.map((r) => (
+                  <div key={r.roleId} className="rec-item">
+                    <div className="rec-title">
+                      {r.rank}. {r.roleTitle}
+                      <span className="rec-level">
+                        {d.kiosk.review.recsLevelLabel} {r.nsqfLevel}
+                      </span>
+                    </div>
+                    <ul className="rec-why">
+                      {r.reasons.map((why, j) => (
+                        <li key={j}>{why}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="btn-row">
               <button className="btn btn-ghost" onClick={startOver}>
                 {d.kiosk.review.startOver}

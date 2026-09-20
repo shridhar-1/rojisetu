@@ -481,3 +481,12 @@ p.page-sub {
   margin: 8px 0;
   font-size: 0.9rem;
 }
+
+/* Day 5 thanks-screen recommendations */
+.rec-list { margin: 14px 0 6px; text-align: left; }
+.rec-head { font-size: 1.05rem; color: #14532d; margin: 0 0 10px; }
+.rec-item { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+.rec-title { font-weight: 700; color: #14532d; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.rec-level { font-weight: 500; font-size: 0.78rem; color: #166534; background: #dcfce7; border-radius: 999px; padding: 2px 10px; }
+.rec-why { margin: 6px 0 0; padding-left: 18px; font-size: 0.92rem; color: #374151; }
+.rec-why li { margin: 2px 0; }

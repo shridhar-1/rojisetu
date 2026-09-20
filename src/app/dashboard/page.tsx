@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Logo } from "@/components/logo";
 import { LANGS, getDict, toLang } from "@/lib/i18n";
 import { demoProfiles, type DemoProfile } from "@/lib/demo-data";
@@ -36,8 +36,32 @@ export default async function DashboardPage({ searchParams }: Props) {
         })
         .from(schema.beneficiaries)
         .orderBy(desc(schema.beneficiaries.createdAt))
-        .limit(20);
+                .limit(20);
       dbLive = true;
+
+      // Day 5: top recommendation per beneficiary = the rank-1 row the
+      // engine stored. Recommendation-less interviews honestly stay "-".
+      const topRec: Record<string, string> = {};
+      if (rows.length > 0) {
+        const recs = await db
+          .select({
+            beneficiaryId: schema.recommendations.beneficiaryId,
+            roleTitle: schema.recommendations.roleTitle,
+          })
+          .from(schema.recommendations)
+          .where(
+            and(
+              eq(schema.recommendations.rank, 1),
+              inArray(
+                schema.recommendations.beneficiaryId,
+                rows.map((b) => b.id)
+              )
+            )
+          );
+        for (const r of recs) {
+          if (!(r.beneficiaryId in topRec)) topRec[r.beneficiaryId] = r.roleTitle;
+        }
+      }
       realRows = rows.map((b) => ({
         name: `Profile ${b.id.slice(0, 6)}`,
         district: b.district ?? "-",
