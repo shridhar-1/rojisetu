@@ -1,11 +1,13 @@
 // Demo rows for the official dashboard. Shown ONLY when DEMO_MODE=true,
 // same backdoor gate as MediKiosk. Clearly labelled, never mistaken for real data.
+import { type OutcomeStatus } from "./outcomes";
+
 export type DemoProfile = {
   name: string;
   district: string;
   education: string;
   topRecommendation: string;
-  status: "recommended" | "enrolled" | "placed";
+  status: OutcomeStatus;
 };
 
 export const demoProfiles: DemoProfile[] = [

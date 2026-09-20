@@ -34,7 +34,12 @@ export const en = {
       typePlaceholder: "Type your answer…",
       send: "Send",
       retryNote: "No reply. Check your connection and try again.",
+          voiceUnsupported: "Voice input is not supported in this browser. Please type your answer.",
+      micSpeak: "Speak your answer",
+      soundOn: "🔊 Voice replies: ON",
+      soundOff: "🔈 Voice replies: OFF",
     },
+    
     review: {
       title: "Check your details",
       note: "Tap any item to change it. You will re-answer just that one question.",

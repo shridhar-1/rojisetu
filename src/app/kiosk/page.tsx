@@ -21,6 +21,51 @@ import {
 type Bubble = ChatMessage & { engine?: string };
 type Screen = "picker" | "chat" | "review" | "thanks";
 
+// Day 6 voice layer. The same interview engine drives it: speech-to-text
+// becomes the user turn, replies can be read out. Browser Web Speech API -
+// honest support note: Chrome/Edge full, others degrade to type + read.
+const SPEECH_LANG: Record<Lang, string> = {
+  en: "en-IN",
+  hi: "hi-IN",
+  bn: "bn-IN",
+  kn: "kn-IN",
+  ta: "ta-IN",
+  te: "te-IN",
+  mr: "mr-IN",
+};
+
+// Minimal structural type: the DOM SpeechRecognition typings are not in
+// this project's TS lib, so we describe only what this page uses.
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult:
+    | ((ev: { results: { 0: { 0: { transcript: string } } } }) => void)
+    | null;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+};
+
+function speakReply(text: string, langCode: Lang) {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel(); // never queue monotone stacking
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = SPEECH_LANG[langCode];
+    const match = synth
+      .getVoices()
+      .find((v) => v.lang && v.lang.toLowerCase().startsWith(langCode));
+    if (match) u.voice = match;
+    synth.speak(u);
+  } catch {
+    // TTS absence is a silent no-op; the text stays readable.
+  }
+}
+
 // Day 5: top-3 picks shown on the thanks screen, beneficiary-visible.
 type ThanksRec = {
   recommendations: {
@@ -43,7 +88,11 @@ export default function KioskPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
   const [saveResult, setSaveResult] = useState<"saved" | "notSaved" | null>(null);
   const [recs, setRecs] = useState<ThanksRec | null>(null);
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceNote, setVoiceNote] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const voiceOnRef = useRef(false); // async callbacks read a ref, not state
   const d = getDict(lang ?? "en");
 
   useEffect(() => {
@@ -67,8 +116,9 @@ export default function KioskPage() {
         text: data.reply,
         engine: data.engine,
       };
-      setHistory([...nextHistory, reply]);
+            setHistory([...nextHistory, reply]);
       setProfile(data.profile);
+      if (voiceOnRef.current) speakReply(reply.text, chosen);
       setBusy(false);
       if (data.done === true) setScreen("review");
     } catch {
@@ -85,13 +135,54 @@ export default function KioskPage() {
     void askServer([], chosen);
   }
 
-  function send() {
+    function send() {
     const text = input.trim();
     if (!text || busy || lang === null) return;
     const next: Bubble[] = [...history, { role: "user", text }];
     setHistory(next);
     setInput("");
     void askServer(next, lang);
+  }
+
+  // Voice: recognised text posts as a normal user turn - the engine,
+  // never-re-ask rule and review fix all behave exactly as with typing.
+  function startListening() {
+    if (busy || listening || lang === null) return;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Ctor) {
+      setVoiceNote(true);
+      return;
+    }
+    try {
+      const r = new Ctor();
+      r.lang = SPEECH_LANG[lang];
+      r.interimResults = false;
+      r.maxAlternatives = 1;
+      r.onresult = (ev) => {
+        const t = ev.results?.[0]?.[0]?.transcript ?? "";
+        const chosen = lang;
+        if (t.trim() && chosen) {
+          const next: Bubble[] = [...history, { role: "user", text: t.trim() }];
+          setHistory(next);
+          void askServer(next, chosen);
+        }
+      };
+      r.onstart = () => setListening(true);
+      r.onend = () => setListening(false);
+      r.onerror = () => setListening(false);
+      r.start();
+    } catch {
+      setVoiceNote(true);
+    }
+  }
+
+  function toggleVoice() {
+    voiceOnRef.current = !voiceOnRef.current;
+    setVoiceOn(voiceOnRef.current);
   }
 
   // Review screen tap-to-fix: ask that one question again inside the chat.
@@ -114,6 +205,8 @@ export default function KioskPage() {
     setProfile(null);
     setSaveResult(null);
     setRecs(null);
+        setListening(false);
+    setVoiceNote(false);
     setInput("");
     setError(false);
     setScreen("picker");
@@ -216,9 +309,21 @@ export default function KioskPage() {
               {busy && <div className="typing">…</div>}
             </div>
 
-            {error && <div className="error-note">{d.kiosk.chat.retryNote}</div>}
+                        {error && <div className="error-note">{d.kiosk.chat.retryNote}</div>}
+            {voiceNote && (
+              <div className="voice-note">{d.kiosk.chat.voiceUnsupported}</div>
+            )}
 
             <div className="chat-input-row">
+              <button
+                className={`btn btn-ghost btn-voice${listening ? " mic-active" : ""}`}
+                onClick={startListening}
+                disabled={busy || listening}
+                aria-label={d.kiosk.chat.micSpeak}
+                title={d.kiosk.chat.micSpeak}
+              >
+                🎤
+              </button>
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -238,7 +343,10 @@ export default function KioskPage() {
               </button>
             </div>
 
-            <div className="btn-row">
+                        <div className="btn-row">
+              <button className="btn btn-ghost" onClick={toggleVoice} title={d.kiosk.chat.micSpeak}>
+                {voiceOn ? d.kiosk.chat.soundOn : d.kiosk.chat.soundOff}
+              </button>
               <button className="btn btn-ghost" onClick={startOver}>
                 {d.kiosk.changeLanguage}
               </button>

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Logo } from "@/components/logo";
+import OutcomeSelect from "@/components/OutcomeSelect";
 import { LANGS, getDict, toLang } from "@/lib/i18n";
 import { demoProfiles, type DemoProfile } from "@/lib/demo-data";
+import { ENROLLED_STATUSES, PLACED_STATUSES, isOutcomeStatus } from "@/lib/outcomes";
 import { getDb, schema } from "@/db";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +13,14 @@ type Props = {
   searchParams: { lang?: string };
 };
 
-type Row = DemoProfile;
+// Day 6: real rows carry their beneficiary id so the official can move the
+// pipeline per row; demo rows have none and stay read-only.
+type Row = DemoProfile & { beneficiaryId?: string };
 
-// Official dashboard for the district corporation. Day 3: reads real
-// beneficiary rows when the database is attached. Day 5: the top-recommendation
-// column reads the rank-1 row the engine stored; recommendation-less
-// interviews honestly stay "-". Light payloads only - no transcripts here,
-// matching the MediKiosk list-API pattern rule.
+// Official dashboard for the district corporation. Day 3: real beneficiary
+// rows. Day 5: top-recommendation column from stored picks. Day 6: latest
+// outcome event per row plus a status picker; stat cards map honestly
+// (see outcomes.ts for the counting rules). Light payload only.
 export default async function DashboardPage({ searchParams }: Props) {
   const lang = toLang(searchParams.lang);
   const d = getDict(lang);
@@ -40,9 +43,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         .limit(20);
       dbLive = true;
 
-      // Day 5: top recommendation per beneficiary = the rank-1 row the
-      // engine stored. Inner try: a join failure must never hide the
-      // beneficiary list.
+      // Top recommendation per beneficiary = the rank-1 stored pick.
       const topRec: Record<string, string> = {};
       try {
         if (rows.length > 0) {
@@ -69,13 +70,44 @@ export default async function DashboardPage({ searchParams }: Props) {
         // keep topRec empty; the column honestly shows "-"
       }
 
-      realRows = rows.map((b) => ({
-        name: `Profile ${b.id.slice(0, 6)}`,
-        district: b.district ?? "-",
-        education: b.education ?? "-",
-        topRecommendation: topRec[b.id] ?? "-",
-        status: "recommended",
-      }));
+      // Day 6: latest outcome event per beneficiary (event log, newest wins).
+      const latestStatus: Record<string, string> = {};
+      try {
+        if (rows.length > 0) {
+          const evs = await db
+            .select({
+              beneficiaryId: schema.outcomes.beneficiaryId,
+              status: schema.outcomes.status,
+              updatedAt: schema.outcomes.updatedAt,
+            })
+            .from(schema.outcomes)
+            .where(
+              inArray(
+                schema.outcomes.beneficiaryId,
+                rows.map((b) => b.id)
+              )
+            )
+            .orderBy(desc(schema.outcomes.updatedAt));
+          for (const e of evs) {
+            if (!(e.beneficiaryId in latestStatus))
+              latestStatus[e.beneficiaryId] = e.status;
+          }
+        }
+      } catch {
+        // keep empty; statuses default to "recommended"
+      }
+
+      realRows = rows.map((b): Row => {
+        const ls = latestStatus[b.id];
+        return {
+          name: `Profile ${b.id.slice(0, 6)}`,
+          district: b.district ?? "-",
+          education: b.education ?? "-",
+          topRecommendation: topRec[b.id] ?? "-",
+          status: isOutcomeStatus(ls) ? ls : "recommended",
+          beneficiaryId: b.id,
+        };
+      });
     } catch {
       dbLive = false;
     }
@@ -88,8 +120,8 @@ export default async function DashboardPage({ searchParams }: Props) {
   const stats = {
     profiles: profiles.length,
     recommendations: profiles.filter((p) => p.topRecommendation !== "-").length,
-    enrolled: profiles.filter((p) => p.status === "enrolled").length,
-    placed: profiles.filter((p) => p.status === "placed").length,
+    enrolled: profiles.filter((p) => ENROLLED_STATUSES.includes(p.status)).length,
+    placed: profiles.filter((p) => PLACED_STATUSES.includes(p.status)).length,
   };
 
   return (
@@ -172,6 +204,12 @@ export default async function DashboardPage({ searchParams }: Props) {
                       <span className={`status status-${p.status}`}>
                         {p.status}
                       </span>
+                      {p.beneficiaryId && (
+                        <OutcomeSelect
+                          beneficiaryId={p.beneficiaryId}
+                          current={p.status}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
