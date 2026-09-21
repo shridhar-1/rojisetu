@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Only genuine next-questions are offered to the AI lanes for a warm
     // rephrase. Openings, acks and the done screen stay deterministic.
-    if (allowAI && turn.replyKind === "question" && turn.topic) {
+    if (allowAI && turn.replyKind === "question" && turn.topic && !turn.repair) {
       const ai = await rephraseQuestionWithAI({ base: turn.reply, lang });
       aiLane = ai.reason;
       if (ai.text) {

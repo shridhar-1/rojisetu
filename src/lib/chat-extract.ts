@@ -319,16 +319,106 @@ const DONE: Record<Lang, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Day 8: answer-type validation ("is this an answer to what I asked?").
+// Each topic has a type signature. An answer that does not fit is NOT
+// recorded; the assistant says so and re-asks (REPAIR). After MAX_REPAIRS
+// repair turns the latest answer is accepted as-is, so a valid-but-unusual
+// answer can never trap a beneficiary in a loop. Fully deterministic.
+// ---------------------------------------------------------------------------
+
+export const MAX_REPAIRS = 2;
+
+const REPAIR: Record<Lang, string> = {
+  en: "That does not answer what I asked. Let me ask again:",
+  hi: "आपने जो बताया वह मेरे सवाल का जवाब नहीं है। फिर से पूछती हूँ:",
+  bn: "যা বললেন তা আমার প্রশ্নের উত্তর নয়। আবার জিজ্ঞেস করছি:",
+  kn: "ನೀವು ಹೇಳಿದ್ದು ನನ್ನ ಪ್ರಶ্নೆಗೆ ಉತ್ತರ ಅಲ್ಲ. ಮತ್ತೆ ಕೇಳುತ್ತಿದ್ದೇನೆ:",
+  ta: "நீங்கள் சொன்னது என் கேள்விக்கான பதில் அல்ல. மீண்டும் கேட்கிறேன்:",
+  te: "మీరు చెప్పింది నా ప్రశ్నకు సమాధానం కాదు. మళ్లీ అడుగుతున్నాను:",
+  mr: "तुम्ही बोलला ते माझ्या प्रश्नाचे उत्तर नाही. पुन्हा विचारते:",
+};
+
+// ---------------------------------------------------------------------------
 // Extraction. Canonical values are small and safe; anything unclear keeps
 // only the raw answer. The recommender (Day 4-5) re-derives levels later.
 // ---------------------------------------------------------------------------
-
 const RE_EDU_NONE =
   /(no formal|illiterate|never went|did not study|didn't study|नहीं पढ़|निरक्षर|পড়া নাই|অশিক্ষিত|নিরক্ষর|ಓದಿಲ್ಲ|ಅಕ್ಷರಸ್ಥರಲ್ಲ|படிக்கவில்லை|எழுதப் படிக்கத் தெரியாது|చదవలేదు|అక్షరాలు రావు|शिकलो नाही|अशिक्षित)/i;
 const RE_EDU_CLASS = /(\d{1,2})\s*(th|st|rd|nd|वीं|वी|ম|শ্ৰ?েণী|ನೇ|வது|వ|व्या)?/i;
 const RE_EDU_ITI = /(iti|आई टी आई|আইটিआই|আইটিআই|ಐటಿಐ|ஐடிஐ|ఐటిఐ|आयटीआय)/i;
 const RE_EDU_DIPLOMA = /(diploma|डिप्लोमा|ডিপ্লোমা|ಡಿಪ್ಲೊಮಾ|டிப்ளமோ|డిప్లొమా|डिप्लोमा)/i;
 const RE_EDU_GRAD = /(graduate|graduation|degree|स्नातक|ग्रेजुएट|স্নাতক|পদবী|ಪದವೀಧರ|பட்டதாரி|గ్రాడ్యుయేట్|पदवी|पदवीधर)/i;
+
+/**
+ * Mobility answer signature.
+ *
+ * Important: this deliberately includes affirmative/negative mobility words
+ * because answers such as "yes, I can travel" or "no, I cannot travel" must
+ * be recognized as answers to the mobility question.
+ */
+const RE_MOBILITY =
+  /(\\byes\\b|\\byep\\b|\\byeah\\b|\\bno\\b|cannot|can't|wont|won't|able|unable|travel|migrate|\\bfar\\b|\\bnear home\\b|हाँ|हो\\b|नहीं|नाही|जा सक|शक्य|मी करू|দূরে|হ্যাঁ|না\\b|পারি|পারব|বাড়ি|ಹೌದು|ಇಲ್ಲ|ಬಹುದು|ಸಾಧ್ಯವಿಲ್ಲ|ಮನೆ|ஆம்|இல்லை|முடியும்|முடியாது|வீட்|అవును|కాదు|వీలు|గలను|గలదు|ఇంటి|సాధ్యం)/i;
+
+function eduSig(t: string): boolean {
+  if (RE_EDU_NONE.test(t) || RE_EDU_ITI.test(t) || RE_EDU_DIPLOMA.test(t)) return true;
+  if (RE_EDU_GRAD.test(t) || RE_EDU_CLASS.test(t)) return true;
+  if (EDU_SPELLED.some(([w]) => t.includes(w))) return true;
+  return TOPIC_TERMS.education.some((w) => t.includes(w));
+}
+
+function mobSig(t: string): boolean {
+  // Long/multi-word terms only: short ones ("far", "bus") collide with
+  // ordinary answers like "We are farmers" when reused as an answer-type test.
+  return RE_MOBILITY.test(t) || TOPIC_TERMS.mobility.some((w) => w.length >= 6 && t.includes(w));
+}
+
+function prefSig(t: string): boolean {
+  return RE_SELF.test(t) || RE_WAGE.test(t) || RE_EITHER.test(t);
+}
+
+/** Substantive text: at least 3 letters (not bare numbers or a bare "hm"). */
+function substance(t: string): boolean {
+  return (t.replace(/[^\\p{L}]/gu, "").length >= 3);
+}
+
+/** True only when exactly one strict signature matched (and it's not ours). */
+function strictlyOtherSig(expected: Topic, edu: boolean, mob: boolean, pref: boolean): boolean {
+  if (expected === "education") return false;
+  if (expected === "mobility") return false;
+  if (expected === "workPreference") return false;
+  return [edu, mob, pref].filter(Boolean).length === 1;
+}
+
+/** Is this answer the type of answer the question for `topic` expects? */
+export function answerFits(topic: Topic, text: string): boolean {
+  const t = normalize(text);
+  const edu = eduSig(t);
+  const mob = mobSig(t);
+  const pref = prefSig(t);
+  if (topic === "education") return edu;
+  if (topic === "workPreference") return pref || (substance(t) && !edu && !mob);
+  if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
+  // free-text topics: need substance and must not be purely another type's answer
+  return substance(t) && !strictlyOtherSig(topic, edu, mob, pref);
+}
+
+/** Repair turns already used for this topic before history index `upto`. */
+export function repairCountBefore(history: ChatMessage[], upto: number, topic: Topic, lang: Lang): number {
+  let n = 0;
+  for (let j = 0; j < upto; j++) {
+    const m = history[j];
+    if (m && m.role === "assistant" && m.text.startsWith(REPAIR[lang]) && questionTopic(m.text) === topic) n++;
+  }
+  return n;
+}
+
+/**
+ * Repair text for a rejected answer: honest "you did not answer what I
+ * asked", then the same question again in the beneficiary's language.
+ */
+export function repairQuestion(topic: Topic, lang: Lang): string {
+  return REPAIR[lang] + " " + QUESTIONS[lang][topic];
+}
 
 const RE_SELF =
   /(self|own work|own business|own shop|खुद का|अपना काम|अपने काम|स्वरोज़गार|बिज़नेस|व्यवसाय|নিজের কাজ|ব্যবসা|স্বনিয়োজিত|ಸ್ವಂತ ಕೆಲಸ|ವ್ಯಾಪಾರ|சொந்தமாக|சொந்தத் தொழில்|స్వంత పని|వ్యాపారం|स्वतःचे|स्वयंरोजगार)/i;
@@ -435,7 +525,13 @@ export function markKnownFromHistory(history: ChatMessage[], lang: Lang): Profil
       if (profile.topics[topic].status === "unknown") {
         profile.topics[topic] = { status: "refused", value: null, canonical: null };
       }
-      continue;
+            continue;
+    }
+    // Day 8: type check. Mismatched answers do not settle the topic; the
+    // interview repairs and asks again. After MAX_REPAIRS repairs, accept.
+    if (!answerFits(topic, u.text)) {
+      // i+1: a repair turn at index i is itself a repair for this topic.
+      if (repairCountBefore(history, i + 1, topic, lang) < MAX_REPAIRS) continue;
     }
     markTopic(profile, topic, u.text);
   }
@@ -474,7 +570,8 @@ export type ReplyKind = "opening" | "ack" | "question" | "done";
 export interface DeterministicTurn {
   reply: string;
   replyKind: ReplyKind;
-  topic: Topic | null; // which topic this question targets (null for opening/ack/done)
+    topic: Topic | null; // which topic this question targets (null for opening/ack/done)
+  repair: boolean; // true when the reply re-asks after a mismatched answer
   engine: "deterministic";
   profile: Profile;
   done: boolean;
@@ -488,6 +585,7 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
       reply: OPENING[lang] + " " + QUESTIONS[lang].education,
       replyKind: "opening",
       topic: "education",
+      repair: false,
       engine: "deterministic",
       profile,
       done: false,
@@ -499,6 +597,7 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
       reply: DONE[lang],
       replyKind: "done",
       topic: null,
+      repair: false,
       engine: "deterministic",
       profile,
       done: true,
@@ -511,6 +610,7 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
       reply: DONE[lang],
       replyKind: "done",
       topic: null,
+      repair: false,
       engine: "deterministic",
       profile,
       done: true,
@@ -518,21 +618,51 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
   }
 
   const last = history[history.length - 1];
+
   if (last && last.role === "user" && isChitChat(last.text, lang)) {
     return {
       reply: ACK[lang] + " " + next.text,
       replyKind: "ack",
       topic: next.topic,
+      repair: false,
       engine: "deterministic",
       profile,
       done: false,
     };
   }
 
+  // Day 8: the previous question is still unsettled and the last answer did
+  // not fit its type -> say so honestly and ask the same question again.
+  // The accepting-cap lives in markKnownFromHistory via repairCountBefore().
+  if (last && last.role === "user" && !isSkip(last.text, lang)) {
+    const prevQ = history.length >= 2 ? history[history.length - 2] : null;
+    const t =
+      prevQ && prevQ.role === "assistant"
+        ? questionTopic(prevQ.text)
+        : null;
+
+    if (
+      t !== null &&
+      profile.topics[t].status === "unknown" &&
+      !answerFits(t, last.text)
+    ) {
+      return {
+        reply: repairQuestion(t, lang),
+        replyKind: "question",
+        topic: t,
+        repair: true,
+        engine: "deterministic",
+        profile,
+        done: false,
+      };
+    }
+  }
+
   return {
     reply: next.text,
     replyKind: "question",
     topic: next.topic,
+    repair: false,
     engine: "deterministic",
     profile,
     done: false,
