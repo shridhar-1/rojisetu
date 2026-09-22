@@ -11,6 +11,7 @@
 //     with no AI reachable. This file is pure and synchronous.
 
 import { getDict, type Lang } from "./i18n";
+import { resolveDistrict } from "./districts";
 
 export type Topic =
   | "education"
@@ -424,7 +425,11 @@ export function answerFits(topic: Topic, text: string): boolean {
   const pref = prefSig(t);
   if (topic === "education") return edu;
   if (topic === "workPreference") return pref || (substance(t) && !edu && !mob);
-  if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
+   if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
+  // Day 9: the district must be a REAL Indian district (approximate match
+  // over native spelling aliases; the repair cap remains the escape valve).
+  if (topic === "district") return resolveDistrict(text) !== null;
+  // free-text topics: need substance and must not be purely another type's answer if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
   // free-text topics: need substance and must not be purely another type's answer
   return substance(t) && !strictlyOtherSig(topic, edu, mob, pref);
 }
@@ -464,11 +469,16 @@ function extractCanonical(topic: Topic, raw: string): string | null {
     }
     return null;
   }
-  if (topic === "workPreference") {
+    if (topic === "workPreference") {
     if (RE_EITHER.test(t)) return "either";
     if (RE_SELF.test(t)) return "self";
     if (RE_WAGE.test(t)) return "wage";
     return null;
+  }
+  if (topic === "district") {
+    // Canonical "Name (State)" for downstream use; null when unresolved.
+    const hit = resolveDistrict(raw);
+    return hit ? hit.en + " (" + hit.state + ")" : null;
   }
   return null;
 }
