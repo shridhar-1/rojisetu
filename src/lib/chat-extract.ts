@@ -116,7 +116,7 @@ const TOPIC_TERMS: Record<Topic, string[]> = {
     "near home", "physical", "disability", "wheelchair",
     "दूर जा", "यात्रा", "घर के पास", "घर रहना", "शारीरिक", "दिव्यांग",
     "দূরে যেতে", "যাতায়াত", "বাড়ির কাছে", "শারীরিক", "প্রতিবন্ধী",
-    "ದೂರ ಹೋಗ", "ಪ್ರಯಾಣ", "ಮನೆ ಹತ್ತಿರ", "ದೈಹಿಕ",
+    "ದೂর ಹೋಗ", "ಪ್ರಯಾಣ", "ಮನೆ ಹತ್ತಿರ", "ದೈಹিক",
     "தூரம் செல்ல", "பயணம்", "வீட்டுக்கு அருகில்", "உடல்", "மாற்றுத்திறனாளி",
     "దూరం వెళ్ల", "ప్రయాణం", "ఇంటి దగ్గర", "శారీరక", "వికలాంగ",
     "दूर जाऊ", "प्रवास", "घराजवळ", "शारीरिक", "दिव्यांग",
@@ -135,7 +135,7 @@ const TOPIC_TERMS: Record<Topic, string[]> = {
     "district", "village", "town", "block", "state", "nearby", "available around",
     "ज़िला", "जिला", "गाँव", "शहर", "आसपास", "ब्लॉक",
     "জেলা", "গ্রাম", "শহর", "আশেপাশে", "ব্লক",
-    "ಜಿಲ್ಲೆ", "ಊರು", "ಹಳ್ಳಿ", "ಹತ್ತಿರ", "ಬ್ಲಾಕ್",
+    "ಜಿಲ್ಲೆ", "ಊರು", "ಹಳ್ಳಿ", "ಹತ್ತির", "ಬ್ಲಾಕ್",
     "மாவட்டம்", "கிராமம்", "ஊர்", "அருகில்", "வட்டம்",
     "జిల్లా", "గ్రామం", "పట్టణం", "దగ్గరలో", "మండలం",
     "जिल्हा", "गाव", "शहर", "जवळ", "तालुका",
@@ -256,7 +256,7 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     currentLivelihood: "ಮತ್ತು ಈ ದಿನಗಳಲ್ಲಿ ನೀವು ಹೇಗೆ ಹಣ ಗಳಿಸುತ್ತೀರಿ?",
     skillsInterests: "ನೀವು ಯಾವ ಕೆಲಸದಲ್ಲಿ ಪರಿಣತಿ ಹೊಂದಿದ್ದೀರಿ, ಮತ್ತು ಯಾವ ಕೆಲಸ ನಿಮ್ಮ ಇಷ್ಟ?",
     mobility: "ಕೆಲಸ ಅಥವಾ ತರಬೇತಿಗಾಗಿ ನೀವು ದೂರ ಹೋಗಬಹುದೇ, ಅಥವಾ ಮನೆ ಹತ್ತಿರವೇ ಇರಬೇಕೇ?",
-    workPreference: "ನೀವು ಸ್ವಂತ ಕೆಲಸ ಮಾಡಲು ಇಷ್ಟಪಡುತ್ತೀರಾ ಅಥವಾ ತಿಂಗಳ ಸಂಬಳದ ಉদ್ಯೋಗವೇ?",
+    workPreference: "ನೀವು ಸ್ವಂತ ಕೆಲಸ ಮಾಡಲು ಇಷ್ಟಪಡುತ್ತೀರಾ ಅಥವಾ ತಿಂಗಳ ಸಂಬಳದ ಉದ್ಯೋಗವೇ?",
     district: "ನೀವು ಯಾವ ಜಿಲ್ಲೆಯಲ್ಲಿ ವಾಸಿಸುತ್ತೀರಿ, ಮತ್ತು ಹತ್ತಿರದಲ್ಲಿ ಯಾವ ಕೆಲಸ ದೊರೆಯುತ್ತದೆ?",
   },
   ta: {
@@ -312,7 +312,7 @@ const DONE: Record<Lang, string> = {
   en: "Thank you. Your profile is ready. Please check it on the next screen.",
   hi: "धन्यवाद। आपकी प्रोफ़ाइल तैयार है। कृपया अगली स्क्रीन पर उसे जाँच लें।",
   bn: "ধন্যবাদ। আপনার প্রোফাইল তৈরি। পরের স্ক্রিনে তা দেখে নিন।",
-  kn: "ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಸಿದ್ಧವಾಗಿದೆ. ಮುಂದಿನ ಪರದೆಯಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.",
+  kn: "ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಸಿದ್ಧವಾಗಿದೆ. ಮುಂದಿನ ಪರದೆಯಲ್ಲಿ ಪരಿಶೀಲಿಸಿ.",
   ta: "நன்றி. உங்கள் சுயவிவரம் தயார். அடுத்தத் திரையில் சரிபார்க்கவும்.",
   te: "ధన్యవాదాలు. మీ ప్రొఫైల్ సిద్ధమైంది. తదుపరి స్క్రీన్‌లో తనిఖీ చేయండి.",
   mr: "धन्यवाद. तुमची प्रोफाइल तयार आहे. पुढील स्क्रीनवर ती तपासा.",
@@ -332,37 +332,58 @@ const REPAIR: Record<Lang, string> = {
   en: "That does not answer what I asked. Let me ask again:",
   hi: "आपने जो बताया वह मेरे सवाल का जवाब नहीं है। फिर से पूछती हूँ:",
   bn: "যা বললেন তা আমার প্রশ্নের উত্তর নয়। আবার জিজ্ঞেস করছি:",
-  kn: "ನೀವು ಹೇಳಿದ್ದು ನನ್ನ ಪ್ರಶ্নೆಗೆ ಉತ್ತರ ಅಲ್ಲ. ಮತ್ತೆ ಕೇಳುತ್ತಿದ್ದೇನೆ:",
+  kn: "ನೀವು ಹೇಳಿದ್ದು ನನ್ನ ಪ್ರಶ್ನೆಗೆ ಉತ್ತರ ಅಲ್ಲ. ಮತ್ತೆ ಕೇಳುತ್ತಿದ್ದೇನೆ:",
   ta: "நீங்கள் சொன்னது என் கேள்விக்கான பதில் அல்ல. மீண்டும் கேட்கிறேன்:",
   te: "మీరు చెప్పింది నా ప్రశ్నకు సమాధానం కాదు. మళ్లీ అడుగుతున్నాను:",
   mr: "तुम्ही बोलला ते माझ्या प्रश्नाचे उत्तर नाही. पुन्हा विचारते:",
 };
 
-// ---------------------------------------------------------------------------
-// Extraction. Canonical values are small and safe; anything unclear keeps
-// only the raw answer. The recommender (Day 4-5) re-derives levels later.
-// ---------------------------------------------------------------------------
 const RE_EDU_NONE =
   /(no formal|illiterate|never went|did not study|didn't study|नहीं पढ़|निरक्षर|পড়া নাই|অশিক্ষিত|নিরক্ষর|ಓದಿಲ್ಲ|ಅಕ್ಷರಸ್ಥರಲ್ಲ|படிக்கவில்லை|எழுதப் படிக்கத் தெரியாது|చదవలేదు|అక్షరాలు రావు|शिकलो नाही|अशिक्षित)/i;
 const RE_EDU_CLASS = /(\d{1,2})\s*(th|st|rd|nd|वीं|वी|ম|শ্ৰ?েণী|ನೇ|வது|వ|व्या)?/i;
-const RE_EDU_ITI = /(iti|आई टी आई|আইটিआই|আইটিআই|ಐటಿಐ|ஐடிஐ|ఐటిఐ|आयटीआय)/i;
+const RE_EDU_ITI = /(iti|आई टी आई|আইটিआই|আইটিআই|ಐಟಿಐ|ஐடிஐ|ఐటిఐ|आयटीआय)/i;
 const RE_EDU_DIPLOMA = /(diploma|डिप्लोमा|ডিপ্লোমা|ಡಿಪ್ಲೊಮಾ|டிப்ளமோ|డిప్లొమా|डिप्लोमा)/i;
 const RE_EDU_GRAD = /(graduate|graduation|degree|स्नातक|ग्रेजुएट|স্নাতক|পদবী|ಪದವೀಧರ|பட்டதாரி|గ్రాడ్యుయేట్|पदवी|पदवीधर)/i;
 
-/**
- * Mobility answer signature.
- *
- * Important: this deliberately includes affirmative/negative mobility words
- * because answers such as "yes, I can travel" or "no, I cannot travel" must
- * be recognized as answers to the mobility question.
- */
+const RE_SELF =
+  /(self|own work|own business|own shop|खुद का|अपना काम|अपने काम|स्वरोज़गार|बिज़नेस|व्यवसाय|নিজের কাজ|ব্যবসা|স্বনিয়োজিত|ಸ್ವಂತ ಕೆಲಸ|ವ್ಯಾಪಾರ|சொந்தமாக|சொந்தத் தொழில்|స్వంత పని|వ్యాపారం|स्वतःचे|स्वयंरोजगार)/i;
+const RE_WAGE =
+  /(wage|salary|job|service|नौकरी|तनख्वाह|पगार|চাকরি|বেতন|ಉದ್ಯೋಗ|ಸಂಬಳ|வேலை|சம்பளம்|ఉద్యోగం|ఉద్యోగమా|జీతం|नोकरी)/i;
+const RE_EITHER =
+  /(both|either|any|anything|दोनों|कोई भी|जो भी|দুটোই|যেকোনো|ಎರಡೂ|ಯಾವುದಾದರೂ|இரண்டும்|எதுவாயினும்|రెండూ|ఏదైనా|दोन्ही|काहीही)/i;
+
+// Spelled-out ordinals in Indic scripts ("दहावी" = 10th, "बारहवीं" = 12th).
+// Small, honest coverage: Devanagari ordinals 5-12 plus Bengali দশম.
+const EDU_SPELLED: [string, number][] = [
+  ["पाचवी", 5],
+  ["छठी", 6],
+  ["सातवी", 7],
+  ["आठवी", 8],
+  ["नववी", 9],
+  ["दिसावी", 10],
+  ["दसवीं", 10],
+  ["दसवी", 10],
+  ["दहावी", 10],
+  ["দশম", 10],
+  ["अकरावी", 11],
+  ["ग्यारहवीं", 11],
+  ["बारावी", 12],
+  ["बारहवीं", 12],
+];
+
 const RE_MOBILITY =
-  /(\\byes\\b|\\byep\\b|\\byeah\\b|\\bno\\b|cannot|can't|wont|won't|able|unable|travel|migrate|\\bfar\\b|\\bnear home\\b|हाँ|हो\\b|नहीं|नाही|जा सक|शक्य|मी करू|দূরে|হ্যাঁ|না\\b|পারি|পারব|বাড়ি|ಹೌದು|ಇಲ್ಲ|ಬಹುದು|ಸಾಧ್ಯವಿಲ್ಲ|ಮನೆ|ஆம்|இல்லை|முடியும்|முடியாது|வீட்|అవును|కాదు|వీలు|గలను|గలదు|ఇంటి|సాధ్యం)/i;
+  /(\byes\b|\byep\b|\byeah\b|\bno\b|cannot|can't|wont|won't|able|unable|travel|migrate|\bfar\b|\bnear home\b|हाँ|हो\b|नहीं|नाही|जा सक|शक्य|मी करू|দূরে|হ্যাঁ|না\b|পারি|পারব|বাড়ি|ಹೌದು|ಇಲ್ಲ|ಬಹುದು|ಸಾಧ್ಯವಿಲ್ಲ|ಮನೆ|ஆம்|இல்லை|முடியும்|முடியாது|வீட்|అవును|కాదు|వీలు|గలను|గలదు|ఇంటి|సాధ్యం)/i;
 
 function eduSig(t: string): boolean {
   if (RE_EDU_NONE.test(t) || RE_EDU_ITI.test(t) || RE_EDU_DIPLOMA.test(t)) return true;
-  if (RE_EDU_GRAD.test(t) || RE_EDU_CLASS.test(t)) return true;
+  if (RE_EDU_GRAD.test(t)) return true;
   if (EDU_SPELLED.some(([w]) => t.includes(w))) return true;
+  // Bare numbers are NOT education evidence ("45 years" is an age, not a class).
+  const m = t.match(RE_EDU_CLASS);
+  if (m && m[1]) {
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= 12) return true;
+  }
   return TOPIC_TERMS.education.some((w) => t.includes(w));
 }
 
@@ -378,7 +399,7 @@ function prefSig(t: string): boolean {
 
 /** Substantive text: at least 3 letters (not bare numbers or a bare "hm"). */
 function substance(t: string): boolean {
-  return (t.replace(/[^\\p{L}]/gu, "").length >= 3);
+  return (t.replace(/[^\p{L}]/gu, "").length >= 3);
 }
 
 /** True only when exactly one strict signature matched (and it's not ours). */
@@ -386,12 +407,18 @@ function strictlyOtherSig(expected: Topic, edu: boolean, mob: boolean, pref: boo
   if (expected === "education") return false;
   if (expected === "mobility") return false;
   if (expected === "workPreference") return false;
-  return [edu, mob, pref].filter(Boolean).length === 1;
+  const matched: boolean[] = [edu, mob, pref];
+  return matched.filter(Boolean).length === 1;
 }
+
+/** Contentless echo answers ("same", "ditto", "तेच") never answer any question. */
+const RE_ANAPHORA =
+  /^(same|ditto|as before|as usual|like before|वही|उही|उस्तै|एकই|আগের|అదే|அதே|तेच|ಹಿಂದಿನ|ಮೊದಲಿನದೇ)$/;
 
 /** Is this answer the type of answer the question for `topic` expects? */
 export function answerFits(topic: Topic, text: string): boolean {
   const t = normalize(text);
+  if (t.length <= 26 && RE_ANAPHORA.test(t)) return false;
   const edu = eduSig(t);
   const mob = mobSig(t);
   const pref = prefSig(t);
@@ -420,32 +447,6 @@ export function repairQuestion(topic: Topic, lang: Lang): string {
   return REPAIR[lang] + " " + QUESTIONS[lang][topic];
 }
 
-const RE_SELF =
-  /(self|own work|own business|own shop|खुद का|अपना काम|अपने काम|स्वरोज़गार|बिज़नेस|व्यवसाय|নিজের কাজ|ব্যবসা|স্বনিয়োজিত|ಸ್ವಂತ ಕೆಲಸ|ವ್ಯಾಪಾರ|சொந்தமாக|சொந்தத் தொழில்|స్వంత పని|వ్యాపారం|स्वतःचे|स्वयंरोजगार)/i;
-const RE_WAGE =
-  /(wage|salary|job|service|नौकरी|तनख्वाह|पगार|চাকরি|বেতন|ಉದ್ಯೋಗ|ಸಂಬಳ|வேலை|சம்பளம்|ఉద్యోగం|ఉద్యోగమా|జీతం|नोकरी)/i;
-const RE_EITHER =
-  /(both|either|any|anything|दोनों|कोई भी|जो भी|দুটোই|যেকোনো|ಎರಡೂ|ಯಾವುದಾದರೂ|இரண்டும்|எதுவாயினும்|రెండూ|ఏదైనా|दोन्ही|काहीही)/i;
-
-// Spelled-out ordinals in Indic scripts ("दहावी" = 10th, "बारहवीं" = 12th).
-// Small, honest coverage: Devanagari ordinals 5-12 plus Bengali দশম.
-const EDU_SPELLED: [string, number][] = [
-  ["पाचवी", 5],
-  ["छठी", 6],
-  ["सातवी", 7],
-  ["आठवी", 8],
-  ["नववी", 9],
-  ["दिसावी", 10],
-  ["दसवीं", 10],
-  ["दसवी", 10],
-  ["दहावी", 10],
-  ["দশম", 10],
-  ["अकरावी", 11],
-  ["ग्यारहवीं", 11],
-  ["बारावी", 12],
-  ["बारहवीं", 12],
-];
-
 function extractCanonical(topic: Topic, raw: string): string | null {
   const t = normalize(raw);
   if (topic === "education") {
@@ -453,7 +454,7 @@ function extractCanonical(topic: Topic, raw: string): string | null {
     if (RE_EDU_ITI.test(t)) return "iti";
     if (RE_EDU_DIPLOMA.test(t)) return "diploma";
     if (RE_EDU_GRAD.test(t)) return "graduate";
-        const m = t.match(RE_EDU_CLASS);
+    const m = t.match(RE_EDU_CLASS);
     if (m && m[1]) {
       const n = parseInt(m[1], 10);
       if (n >= 1 && n <= 12) return "class-" + n;
@@ -525,7 +526,7 @@ export function markKnownFromHistory(history: ChatMessage[], lang: Lang): Profil
       if (profile.topics[topic].status === "unknown") {
         profile.topics[topic] = { status: "refused", value: null, canonical: null };
       }
-            continue;
+      continue;
     }
     // Day 8: type check. Mismatched answers do not settle the topic; the
     // interview repairs and asks again. After MAX_REPAIRS repairs, accept.
@@ -570,7 +571,7 @@ export type ReplyKind = "opening" | "ack" | "question" | "done";
 export interface DeterministicTurn {
   reply: string;
   replyKind: ReplyKind;
-    topic: Topic | null; // which topic this question targets (null for opening/ack/done)
+  topic: Topic | null; // which topic this question targets (null for opening/ack/done)
   repair: boolean; // true when the reply re-asks after a mismatched answer
   engine: "deterministic";
   profile: Profile;
@@ -618,7 +619,6 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
   }
 
   const last = history[history.length - 1];
-
   if (last && last.role === "user" && isChitChat(last.text, lang)) {
     return {
       reply: ACK[lang] + " " + next.text,
@@ -633,14 +633,10 @@ export function getDeterministicTurn(history: ChatMessage[], lang: Lang): Determ
 
   // Day 8: the previous question is still unsettled and the last answer did
   // not fit its type -> say so honestly and ask the same question again.
-  // The accepting-cap lives in markKnownFromHistory via repairCountBefore().
+  // (The accepting-cap lives in markKnownFromHistory via repairCountBefore.)
   if (last && last.role === "user" && !isSkip(last.text, lang)) {
     const prevQ = history.length >= 2 ? history[history.length - 2] : null;
-    const t =
-      prevQ && prevQ.role === "assistant"
-        ? questionTopic(prevQ.text)
-        : null;
-
+    const t = prevQ && prevQ.role === "assistant" ? questionTopic(prevQ.text) : null;
     if (
       t !== null &&
       profile.topics[t].status === "unknown" &&
