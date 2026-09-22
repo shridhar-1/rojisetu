@@ -117,6 +117,7 @@ export default function KioskPage() {
   const [voicePhase, setVoicePhase] = useState<VoicePhase>("listening");
   const screenRef = useRef<Screen>("picker");
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
+  const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
   const d = getDict(lang ?? "en");
 
   useEffect(() => { historyRef.current = history; }, [history]);
@@ -197,7 +198,7 @@ export default function KioskPage() {
     void askServer(next, lang);
   }
 
-    function startListening() {
+      function startListening() {
     // Guards read refs: this closure may be old (fired by a TTS onend of an
     // earlier render), but decisions must use TODAY's state.
     if (busyRef.current || listeningRef.current || langRef.current === null) return;
@@ -217,12 +218,15 @@ export default function KioskPage() {
       return;
     }
     try {
-     const r = new Ctor();
+      const r = new Ctor();
       recogRef.current = r;
       r.lang = SPEECH_LANG[chosen];
       r.interimResults = false;
       r.maxAlternatives = 1;
+      let gotResult = false;
       r.onresult = (ev) => {
+        gotResult = true;
+        emptyTriesRef.current = 0;
         const t = ev.results?.[0]?.[0]?.transcript ?? "";
         // Build the turn from historyRef (current), never closure history.
         if (t.trim() && langRef.current) {
@@ -234,16 +238,21 @@ export default function KioskPage() {
           void askServer(next, langRef.current);
         }
       };
-            r.onstart = () => {
+      r.onstart = () => {
         setListening(true);
         if (screenRef.current === "voice") setVoicePhase("listening");
       };
-      r.onend = () => setListening(false);
-      r.onerror = () => {
+      r.onend = () => {
         setListening(false);
-        // Voice mode stays open on mic hiccups so the user can retry.
-        if (screenRef.current === "voice") setVoicePhase("listening");
+        // Voice-mode resilience: Android Chrome aborts a silent mic session
+        // (or races the previous TTS) with NO transcript. Re-open the mic a
+        // few times instead of leaving the user at a dead screen.
+        if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 3) {
+          emptyTriesRef.current += 1;
+          window.setTimeout(() => startListening(), 250);
+        }
       };
+      r.onerror = () => setListening(false);
       r.start();
     } catch {
       setVoiceNote(true);
@@ -251,7 +260,7 @@ export default function KioskPage() {
   }
     // Voice mode (Day 7c): immersive full screen, Gemini-style. Entering it
   // implies voice replies ON for the duration; leaving restores the chat.
-  function enterVoice() {
+      function enterVoice() {
     if (langRef.current === null) return;
     const w = window as unknown as {
       SpeechRecognition?: new () => SpeechRecognitionLike;
@@ -264,11 +273,28 @@ export default function KioskPage() {
     }
     voiceOnRef.current = true;
     setVoiceOn(true);
-    setVoicePhase("listening");
+    emptyTriesRef.current = 0;
     setScreen("voice");
-    window.setTimeout(() => startListening(), 180);
+    // Speak the pending question FIRST: when replies were typed-only (voice
+    // replies off), the beneficiary has not heard the question yet. The mic
+    // opens when the speech ends. If a reply is already in flight, listen.
+    const lastA = [...historyRef.current].reverse().find((m) => m.role === "assistant");
+    const lastIsUser =
+      historyRef.current.length > 0 &&
+      historyRef.current[historyRef.current.length - 1].role === "user";
+    const chosen = langRef.current;
+    if (lastA && !lastIsUser && chosen && lastA.text.length >= 4) {
+      setVoicePhase("speaking");
+      speakReply(lastA.text, chosen, () => {
+        if (voiceOnRef.current && screenRef.current === "voice") {
+          window.setTimeout(() => startListening(), 200);
+        }
+      });
+    } else {
+      setVoicePhase("listening");
+      window.setTimeout(() => startListening(), 180);
+    }
   }
-
   function exitVoice() {
     try {
       recogRef.current?.abort?.();
@@ -585,16 +611,25 @@ export default function KioskPage() {
 
           <button
             className={`voice-orb ${voicePhase}`}
-            onClick={() => {
+                       onClick={() => {
               if (voicePhase === "listening") {
+                // hard reset: abort the current session and re-open the mic
                 try {
                   recogRef.current?.abort?.();
                 } catch {
                   // no-op
                 }
-                setListening(false);
+                emptyTriesRef.current = 0;
+                window.setTimeout(() => startListening(), 150);
+              } else if (voicePhase === "speaking") {
+                // barge-in: skip the rest of the speech; mic re-opens on utterance end
+                try {
+                  window.speechSynthesis?.cancel();
+                } catch {
+                  // no-op
+                }
               } else {
-                startListening();
+                startListening(); // thinking: guarded by busyRef anyway
               }
             }}
             aria-label={d.kiosk.chat.micSpeak}
