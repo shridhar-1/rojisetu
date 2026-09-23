@@ -117,7 +117,10 @@ export default function KioskPage() {
   const [voicePhase, setVoicePhase] = useState<VoicePhase>("listening");
   const screenRef = useRef<Screen>("picker");
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
-  const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
+   const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
+  const speechTokenRef = useRef(0); // guards the TTS watchdog against stale checks
+  const voicePhaseRef = useRef<VoicePhase>("listening");
+  useEffect(() => { voicePhaseRef.current = voicePhase; }, [voicePhase]);
   const d = getDict(lang ?? "en");
 
   useEffect(() => { historyRef.current = history; }, [history]);
