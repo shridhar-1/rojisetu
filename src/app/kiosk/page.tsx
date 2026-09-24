@@ -14,14 +14,24 @@ import {
 } from "@/lib/chat-extract";
 
 // Beneficiary kiosk flow: language picker -> voice-ready chat interview ->
-// tap-to-fix review -> thanks. The server stays stateless; this client holds
-// the conversation history and the engine recomputes the profile every turn.
-// Beneficiary kiosk flow: interview -> review -> thanks (+ trades with reasons).
-// Voice drives a hands-free loop when Voice replies are ON.
+// tap-to-fix review -> thanks (+ top-3 trades with reasons). Stateless
+// server engine; voice drives a hands-free loop when Voice replies are ON.
 
 type Bubble = ChatMessage & { engine?: string };
 type Screen = "picker" | "chat" | "review" | "thanks" | "voice";
 type VoicePhase = "listening" | "thinking" | "speaking";
+
+// Day 5: top-3 picks shown on the thanks screen, beneficiary-visible.
+type ThanksRec = {
+  recommendations: {
+    roleId: string;
+    roleTitle: string;
+    nsqfLevel: number;
+    rank: number;
+    reasons: string[];
+  }[];
+  engine: string;
+};
 
 // Day 6 voice layer. The same interview engine drives it: speech-to-text
 // becomes the user turn, replies can be read out. Browser Web Speech API -
@@ -47,7 +57,7 @@ type SpeechRecognitionLike = {
     | null;
   onstart: (() => void) | null;
   onend: (() => void) | null;
-   onerror: (() => void) | null;
+  onerror: (() => void) | null;
   start: () => void;
   abort?: () => void;
   stop?: () => void;
@@ -64,6 +74,7 @@ function speakReply(text: string, langCode: Lang, onend?: () => void) {
       return;
     }
     synth.cancel(); // never queue monotone stacking
+    synth.resume?.(); // Android: cancel() can leave the queue paused - revive it
     const u = new SpeechSynthesisUtterance(text);
     u.lang = SPEECH_LANG[langCode];
     u.onend = fireEnd;
@@ -79,18 +90,6 @@ function speakReply(text: string, langCode: Lang, onend?: () => void) {
   }
 }
 
-// Day 5: top-3 picks shown on the thanks screen, beneficiary-visible.
-type ThanksRec = {
-  recommendations: {
-    roleId: string;
-    roleTitle: string;
-    nsqfLevel: number;
-    rank: number;
-    reasons: string[];
-  }[];
-  engine: string;
-};
-
 export default function KioskPage() {
   const [lang, setLang] = useState<Lang | null>(null);
   const [screen, setScreen] = useState<Screen>("picker");
@@ -98,38 +97,50 @@ export default function KioskPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-    const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [saveResult, setSaveResult] = useState<"saved" | "notSaved" | null>(null);
   const [recs, setRecs] = useState<ThanksRec | null>(null);
   const [voiceOn, setVoiceOn] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceNote, setVoiceNote] = useState(false);
-    const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-    const voiceOnRef = useRef(false); // async callbacks read a ref, not state
+  const voiceOnRef = useRef(false); // async callbacks read a ref, not state
   // Fresh-state mirrors: voice callbacks fire seconds AFTER renders, when
   // any captured state would be stale history (the "answer lands on the
   // previous question" bug). Refs hold the current truth at callback time.
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>("listening");
   const historyRef = useRef<Bubble[]>([]);
   const busyRef = useRef(false);
   const listeningRef = useRef(false);
-   const langRef = useRef<Lang | null>(null);
-  const [voicePhase, setVoicePhase] = useState<VoicePhase>("listening");
+  const langRef = useRef<Lang | null>(null);
   const screenRef = useRef<Screen>("picker");
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
-   const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
+  const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
   const speechTokenRef = useRef(0); // guards the TTS watchdog against stale checks
   const voicePhaseRef = useRef<VoicePhase>("listening");
   useEffect(() => { voicePhaseRef.current = voicePhase; }, [voicePhase]);
+  // Warm the TTS voice list once on mount: Chrome Android speaks nothing at
+  // all until voices have loaded (the classic "first reply is silent" bug).
+  useEffect(() => {
+    try {
+      const s = window.speechSynthesis;
+      if (!s) return;
+      s.getVoices();
+      s.onvoiceschanged = () => s.getVoices();
+    } catch {
+      // no-op
+    }
+  }, []);
   const d = getDict(lang ?? "en");
 
   useEffect(() => { historyRef.current = history; }, [history]);
   useEffect(() => { busyRef.current = busy; }, [busy]);
   useEffect(() => { listeningRef.current = listening; }, [listening]);
-    useEffect(() => { langRef.current = lang; }, [lang]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
   useEffect(() => { screenRef.current = screen; }, [screen]);
 
-   useEffect(() => {
+  useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [history, busy]);
@@ -142,7 +153,7 @@ export default function KioskPage() {
     }
   }, [busy, screen]);
 
-    async function askServer(nextHistory: Bubble[], chosen: Lang) {
+  async function askServer(nextHistory: Bubble[], chosen: Lang) {
     setBusy(true);
     setError(false);
     if (screenRef.current === "voice") setVoicePhase("thinking");
@@ -159,21 +170,27 @@ export default function KioskPage() {
         text: data.reply,
         engine: data.engine,
       };
-            setHistory([...nextHistory, reply]);
+      setHistory([...nextHistory, reply]);
       setProfile(data.profile);
-                  const inVoice = voiceOnRef.current && screenRef.current === "voice";
+      const inVoice = voiceOnRef.current && screenRef.current === "voice";
       if (voiceOnRef.current) {
-        // Hands-free loop; in voice mode the orb phase shifts along the way.
-        if (inVoice) setVoicePhase("speaking");
-        speakReply(reply.text, chosen, () => {
-          if (!voiceOnRef.current) return; // user navigated away mid-speech
-          if (screenRef.current === "voice") {
-            if (data.done) setScreen("review");
-            else window.setTimeout(() => startListening(), 200);
-          } else if (!data.done) {
-            window.setTimeout(() => startListening(), 200);
-          }
-        });
+        // Hands-free loop: read the reply aloud, then re-open the mic. Voice
+        // mode routes via speakThenListen (watchdog re-opens the mic even if
+        // TTS hangs); chat hands-free keeps the plain chain.
+        if (inVoice) {
+          setVoicePhase("speaking");
+          speakThenListen(reply.text, chosen);
+        } else {
+          speakReply(reply.text, chosen, () => {
+            if (!voiceOnRef.current) return; // user navigated away mid-speech
+            if (screenRef.current === "voice") {
+              if (data.done) setScreen("review");
+              else window.setTimeout(() => startListening(), 650);
+            } else if (!data.done) {
+              window.setTimeout(() => startListening(), 650);
+            }
+          });
+        }
       }
       setBusy(false);
       // In voice mode the closing line plays first, review arrives on TTS end.
@@ -192,7 +209,7 @@ export default function KioskPage() {
     void askServer([], chosen);
   }
 
-    function send() {
+  function send() {
     const text = input.trim();
     if (!text || busy || lang === null) return;
     const next: Bubble[] = [...history, { role: "user", text }];
@@ -201,13 +218,52 @@ export default function KioskPage() {
     void askServer(next, lang);
   }
 
-      function startListening() {
+  // Voice: recognised text posts as a normal user turn - the engine,
+  // never-re-ask rule and review fix all behave exactly as with typing.
+  // Days 9b/9c hardening:
+  // - Chrome sometimes emits a FINAL result with an empty transcript, or a
+  //   dead session after TTS; those are retried with backoff, never fatal.
+  // - Utterance.onend can be lost (Android bug); speakThenListen arms a
+  //   watchdog that re-opens the mic if speech never finishes.
+  const RECONNECT_MS = [400, 900, 1600];
+
+  function speakThenListen(text: string, chosen: Lang) {
+    const token = ++speechTokenRef.current;
+    const est = Math.min(12000, 500 + text.length * 75); // rough speak duration
+    window.setTimeout(() => {
+      if (
+        voiceOnRef.current &&
+        screenRef.current === "voice" &&
+        speechTokenRef.current === token &&
+        voicePhaseRef.current === "speaking"
+      ) {
+        try {
+          window.speechSynthesis?.cancel();
+          window.speechSynthesis?.resume?.();
+        } catch {
+          // no-op
+        }
+        // Give the channel back to the mic before opening it (same handoff
+        // delay as the normal onend chain).
+        window.setTimeout(() => startListening(), 700);
+      }
+    }, est + 1500);
+    speakReply(text, chosen, () => {
+      if (!voiceOnRef.current || screenRef.current !== "voice") return;
+      // 650ms: Android needs the audio channel back from TTS before the mic hears.
+      window.setTimeout(() => startListening(), 650);
+    });
+  }
+
+  function startListening() {
     // Guards read refs: this closure may be old (fired by a TTS onend of an
     // earlier render), but decisions must use TODAY's state.
     if (busyRef.current || listeningRef.current || langRef.current === null) return;
     const chosen = langRef.current;
     try {
-      window.speechSynthesis?.cancel(); // never listen while talking
+      // never listen while talking (only cancel when genuinely speaking -
+      // cancelling an idle queue is the Android dead-utterance trigger)
+      if (voicePhaseRef.current === "speaking") window.speechSynthesis?.cancel();
     } catch {
       // no-op
     }
@@ -228,11 +284,13 @@ export default function KioskPage() {
       r.maxAlternatives = 1;
       let gotResult = false;
       r.onresult = (ev) => {
+        const t = ev.results?.[0]?.[0]?.transcript ?? "";
+        // Empty finals happen (Chrome); treat them like a no-result session.
+        if (!t.trim()) return;
         gotResult = true;
         emptyTriesRef.current = 0;
-        const t = ev.results?.[0]?.[0]?.transcript ?? "";
         // Build the turn from historyRef (current), never closure history.
-        if (t.trim() && langRef.current) {
+        if (langRef.current) {
           const next: Bubble[] = [
             ...historyRef.current,
             { role: "user", text: t.trim() },
@@ -247,12 +305,11 @@ export default function KioskPage() {
       };
       r.onend = () => {
         setListening(false);
-        // Voice-mode resilience: Android Chrome aborts a silent mic session
-        // (or races the previous TTS) with NO transcript. Re-open the mic a
-        // few times instead of leaving the user at a dead screen.
-        if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 3) {
+        // Voice-mode resilience: silent/dead sessions retry with backoff.
+        if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 4) {
+          const gap = RECONNECT_MS[Math.min(emptyTriesRef.current, RECONNECT_MS.length - 1)];
           emptyTriesRef.current += 1;
-          window.setTimeout(() => startListening(), 250);
+          window.setTimeout(() => startListening(), gap);
         }
       };
       r.onerror = () => setListening(false);
@@ -261,9 +318,10 @@ export default function KioskPage() {
       setVoiceNote(true);
     }
   }
-    // Voice mode (Day 7c): immersive full screen, Gemini-style. Entering it
+
+  // Voice mode (Day 7c): immersive full screen, Gemini-style. Entering it
   // implies voice replies ON for the duration; leaving restores the chat.
-      function enterVoice() {
+  function enterVoice() {
     if (langRef.current === null) return;
     const w = window as unknown as {
       SpeechRecognition?: new () => SpeechRecognitionLike;
@@ -288,16 +346,13 @@ export default function KioskPage() {
     const chosen = langRef.current;
     if (lastA && !lastIsUser && chosen && lastA.text.length >= 4) {
       setVoicePhase("speaking");
-      speakReply(lastA.text, chosen, () => {
-        if (voiceOnRef.current && screenRef.current === "voice") {
-          window.setTimeout(() => startListening(), 200);
-        }
-      });
+      speakThenListen(lastA.text, chosen);
     } else {
       setVoicePhase("listening");
       window.setTimeout(() => startListening(), 180);
     }
   }
+
   function exitVoice() {
     try {
       recogRef.current?.abort?.();
@@ -335,14 +390,19 @@ export default function KioskPage() {
     setScreen("chat");
   }
 
-     function startOver() {
+  function startOver() {
     setLang(null);
     setHistory([]);
     setProfile(null);
     setSaveResult(null);
     setRecs(null);
-        setListening(false);
+    setListening(false);
     setVoiceNote(false);
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      // no-op
+    }
     setInput("");
     setError(false);
     setScreen("picker");
@@ -351,7 +411,8 @@ export default function KioskPage() {
   // Explicit beneficiary action ("Confirm and finish") = consent to save.
   // Then the engine ranks the catalogue and the thanks screen shows the
   // top-3 with reasons - recommendations are keyed to the profile, so they
-  // still appear even when the database is down.
+  // still appear even when the database is down (stored:false surfaces in
+  // the API, the beneficiary story stays whole).
   async function finishInterview() {
     if (lang === null) {
       setScreen("thanks");
@@ -391,8 +452,8 @@ export default function KioskPage() {
     setScreen("thanks");
   }
 
-   const topics = profile ? profile.topics : null;
-    const answeredCount = topics
+  const topics = profile ? profile.topics : null;
+  const answeredCount = topics
     ? TOPIC_ORDER.filter((t) => topics[t].status === "known").length
     : 0;
   const lastAssistant =
@@ -431,7 +492,7 @@ export default function KioskPage() {
           </section>
         )}
 
-                {screen === "chat" && (
+        {screen === "chat" && (
           <section className="card">
             <div className="progress-label">{answeredCount} / {TOPIC_ORDER.length}</div>
             <div className="progress-track">
@@ -447,7 +508,7 @@ export default function KioskPage() {
                   className={`bubble ${
                     m.role === "assistant" ? "bubble-assistant" : "bubble-user"
                   }`}
-                                >
+                >
                   {m.role === "assistant" && (
                     <span className="bubble-avatar" aria-hidden="true">
                       🤝
@@ -462,7 +523,7 @@ export default function KioskPage() {
               {busy && <div className="typing">…</div>}
             </div>
 
-                        {error && <div className="error-note">{d.kiosk.chat.retryNote}</div>}
+            {error && <div className="error-note">{d.kiosk.chat.retryNote}</div>}
             {voiceNote && (
               <div className="voice-note">{d.kiosk.chat.voiceUnsupported}</div>
             )}
@@ -477,7 +538,7 @@ export default function KioskPage() {
               >
                 🎤
               </button>
-                            <input
+              <input
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -497,7 +558,7 @@ export default function KioskPage() {
               </button>
             </div>
 
-                                    <div className="btn-row">
+            <div className="btn-row">
               <button className="btn btn-primary btn-voice-cta" onClick={enterVoice}>
                 🎙 {d.kiosk.voice.startVoice}
               </button>
@@ -561,11 +622,11 @@ export default function KioskPage() {
 
         {screen === "thanks" && (
           <section className="card">
-                        <h1 className="page-title">{d.kiosk.review.thanksTitle}</h1>
+            <h1 className="page-title">{d.kiosk.review.thanksTitle}</h1>
             {saveResult && (
               <p className="page-sub">{d.kiosk.review.saveState[saveResult]}</p>
             )}
-                        <p className="page-sub">{d.kiosk.review.thanksNote}</p>
+            <p className="page-sub">{d.kiosk.review.thanksNote}</p>
 
             {recs && recs.recommendations.length > 0 && (
               <div className="rec-list">
@@ -599,7 +660,7 @@ export default function KioskPage() {
           </section>
         )}
 
-                <footer className="app-footer">{d.footer}</footer>
+        <footer className="app-footer">{d.footer}</footer>
       </main>
 
       {screen === "voice" && (
@@ -614,25 +675,16 @@ export default function KioskPage() {
 
           <button
             className={`voice-orb ${voicePhase}`}
-                       onClick={() => {
+            onClick={() => {
               if (voicePhase === "listening") {
-                // hard reset: abort the current session and re-open the mic
                 try {
                   recogRef.current?.abort?.();
                 } catch {
                   // no-op
                 }
-                emptyTriesRef.current = 0;
-                window.setTimeout(() => startListening(), 150);
-              } else if (voicePhase === "speaking") {
-                // barge-in: skip the rest of the speech; mic re-opens on utterance end
-                try {
-                  window.speechSynthesis?.cancel();
-                } catch {
-                  // no-op
-                }
+                setListening(false);
               } else {
-                startListening(); // thinking: guarded by busyRef anyway
+                startListening();
               }
             }}
             aria-label={d.kiosk.chat.micSpeak}
