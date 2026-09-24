@@ -246,3 +246,34 @@ export async function runAICustomTask(opts: {
     reason: `${groq.reason} | ${gemini.reason} | ${openrouter.reason}`,
   };
 }
+// ---------------------------------------------------------------------------
+// Day 12 small-talk lane: greetings/thanks/chit-chat deserve a REAL AI reply
+// too. The pending interview question still follows the warm acknowledgment -
+// the route only calls this when the engine already classified the utterance
+// as "not an answer", so benefit data can never be swallowed by chit-chat.
+// ---------------------------------------------------------------------------
+
+const SMALLTALK_SYSTEM = (langName: string) =>
+  `You are RojiSetu, a kind livelihood assistant for rural India, in the ` +
+  `middle of a friendly intake interview. The user sent a greeting or small ` +
+  `talk instead of an answer. Reply in ${langName} ONLY, with: (1) one very ` +
+  `short warm acknowledgment of their words, and (2) the interview question ` +
+  `below, asked naturally. Total at most two short sentences, spoken style, ` +
+  `no lists, no notes. Output only the reply.`;
+
+export async function smallTalkWithAI(opts: {
+  userText: string;
+  question: string;
+  lang: Lang;
+}): Promise<AIResult> {
+  return runAICustomTask({
+    task: {
+      system: SMALLTALK_SYSTEM(LANG_NAMES[opts.lang]),
+      user:
+        `User's message: "${opts.userText}"\n` +
+        `Interview question to ask right after: "${opts.question}"`,
+      maxTokens: 120,
+    },
+    lang: opts.lang,
+  });
+}
