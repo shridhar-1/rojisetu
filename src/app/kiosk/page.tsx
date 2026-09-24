@@ -260,9 +260,9 @@ export default function KioskPage() {
         // Hands-free loop: read the reply aloud, then re-open the mic. Voice
         // mode routes via speakThenListen (watchdog re-opens the mic even if
         // TTS hangs); chat hands-free keeps the plain chain.
-        if (inVoice) {
+                if (inVoice) {
           setVoicePhase("speaking");
-          speakThenListen(reply.text, chosen);
+          speakThenListen(reply.text, chosen, data.done === true);
         } else {
           speakReply(reply.text, chosen, () => {
             if (!voiceOnRef.current) return; // user navigated away mid-speech
@@ -401,7 +401,9 @@ export default function KioskPage() {
 
   // ---------- Day 9d: fast capture listening (0.9s endpointing) ----------
 
-  function speakThenListen(text: string, chosen: Lang) {
+    // afterDone: this is the interview CLOSING line - speak it, then land on
+  // the review screen instead of reopening the mic.
+  function speakThenListen(text: string, chosen: Lang, afterDone = false) {
     const token = ++speechTokenRef.current;
     const est = Math.min(12000, 500 + text.length * 75); // rough speak duration
     // Arm the barge-in guard slightly AFTER speech starts (Day 9e): the
@@ -422,15 +424,23 @@ export default function KioskPage() {
         } catch {
           // no-op
         }
-        stopBargeGuard();
-        // Give the channel back to the mic before opening it (same handoff
-        // delay as the normal onend chain).
-        window.setTimeout(() => startListening(), 700);
+                stopBargeGuard();
+        if (afterDone) {
+          window.setTimeout(() => setScreen("review"), 900);
+        } else {
+          // Give the channel back to the mic before opening it (same handoff
+          // delay as the normal onend chain).
+          window.setTimeout(() => startListening(), 700);
+        }
       }
     }, est + 1500);
-    speakReply(text, chosen, () => {
+            speakReply(text, chosen, () => {
       if (!voiceOnRef.current || screenRef.current !== "voice") return;
       stopBargeGuard();
+      if (afterDone) {
+        window.setTimeout(() => setScreen("review"), 600);
+        return;
+      }
       // 650ms: Android needs the audio channel back from TTS before the mic hears.
       window.setTimeout(() => startListening(), 650);
     });
