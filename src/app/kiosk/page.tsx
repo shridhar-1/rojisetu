@@ -61,7 +61,7 @@ type SpeechRecognitionLike = {
   onresult: ((ev: { results: RecognitionResultListLike }) => void) | null;
   onstart: (() => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((ev?: { error?: string }) => void) | null;
   start: () => void;
   abort?: () => void;
   stop?: () => void;
@@ -91,6 +91,16 @@ function normalizeSpeech(s: string): string {
     .trim();
 }
 
+// Fuzzy token equality: transliteration of Indic TTS can shift a word's tail
+// (e.g. "kaam" vs "kam"), so prefix-match in both directions.
+function sameToken(a: string, b: string): boolean {
+  return (
+    a === b ||
+    (a.length >= 3 && b.startsWith(a)) ||
+    (b.length >= 3 && a.startsWith(b))
+  );
+}
+
 function looksLikeEcho(userText: string, botText: string): boolean {
   const u = normalizeSpeech(userText);
   if (u.length < 3) return true; // too short to trust as an interruption
@@ -100,8 +110,37 @@ function looksLikeEcho(userText: string, botText: string): boolean {
   if (uToks.length === 0) return true; // pure filler - ignore
   const bToks = new Set(b.split(" ").filter((w) => !ECHO_STOP_WORDS.has(w)));
   let hit = 0;
-  for (const w of uToks) if (bToks.has(w)) hit++;
-  return hit / uToks.length >= 0.6;
+  for (const w of uToks) {
+    for (const bw of bToks) {
+      if (sameToken(w, bw)) {
+        hit++;
+        break;
+      }
+    }
+  }
+  return hit / uToks.length >= 0.5;
+}
+
+// Day 9e: count content words the BOT never said. A genuine interruption
+// must carry at least 2 of these - a leaked syllable of our own TTS never
+// gets through both the echo filter AND this gate.
+function novelTokenCount(userText: string, botText: string): number {
+  const uToks = normalizeSpeech(userText)
+    .split(" ")
+    .filter((w) => !ECHO_STOP_WORDS.has(w) && w.length >= 2);
+  const bToks = normalizeSpeech(botText).split(" ");
+  let n = 0;
+  for (const w of uToks) {
+    let novel = true;
+    for (const bw of bToks) {
+      if (sameToken(w, bw)) {
+        novel = false;
+        break;
+      }
+    }
+    if (novel) n++;
+  }
+  return n;
 }
 
 function speakReply(text: string, langCode: Lang, onend?: () => void) {
@@ -286,6 +325,7 @@ export default function KioskPage() {
   function startBargeGuard(botText: string, chosen: Lang) {
     stopBargeGuard();
     if (screenRef.current !== "voice" || !voiceOnRef.current) return;
+    if (voicePhaseRef.current !== "speaking") return; // Day 9e: never arm late
     const w = window as unknown as {
       SpeechRecognition?: new () => SpeechRecognitionLike;
       webkitSpeechRecognition?: new () => SpeechRecognitionLike;
@@ -307,9 +347,14 @@ export default function KioskPage() {
         if (!voiceOnRef.current || screenRef.current !== "voice") return;
         if (voicePhaseRef.current !== "speaking") return;
         const t = heard.trim();
-        if (t.length >= 3 && !looksLikeEcho(t, botText)) {
-          // The beneficiary is talking over the bot: stop speaking NOW and
-          // hand the mic to a fresh fast listener ~300ms later.
+        // Stricter evidence than Day 9d: 2+ content words the BOT did NOT
+        // say - a leaked syllable of our own TTS gets through neither the
+        // echo filter nor this gate, so the question is never cut by echo.
+        if (
+          t.length >= 4 &&
+          !looksLikeEcho(t, botText) &&
+          novelTokenCount(t, botText) >= 2
+        ) {
           speechTokenRef.current += 1; // retire the TTS watchdog too
           try {
             window.speechSynthesis?.cancel();
@@ -331,7 +376,7 @@ export default function KioskPage() {
         if (!s.trim() || s === heard) return;
         heard = s;
         if (stableTimer !== null) window.clearTimeout(stableTimer);
-        stableTimer = window.setTimeout(maybeInterrupt, 500); // 0.5s steady = real
+        stableTimer = window.setTimeout(maybeInterrupt, 650); // steady = real
       };
       r.onend = () => {
         if (token !== guardTokenRef.current) return;
@@ -358,7 +403,11 @@ export default function KioskPage() {
   function speakThenListen(text: string, chosen: Lang) {
     const token = ++speechTokenRef.current;
     const est = Math.min(12000, 500 + text.length * 75); // rough speak duration
-    if (screenRef.current === "voice") startBargeGuard(text, chosen);
+    // Arm the barge-in guard slightly AFTER speech starts (Day 9e): the
+    // first playback burst + session warm-up is the false-interrupt window.
+    if (screenRef.current === "voice") {
+      window.setTimeout(() => startBargeGuard(text, chosen), 800);
+    }
     window.setTimeout(() => {
       if (
         voiceOnRef.current &&
@@ -483,10 +532,31 @@ export default function KioskPage() {
           window.setTimeout(() => startListening(), gap);
         }
       };
-      r.onerror = () => {
+      r.onerror = (ev) => {
         setListening(false);
-        if (!gotResult && transcript.trim()) submit();
+        clearQuiet();
+        if (!gotResult && transcript.trim()) {
+          submit();
+          return;
+        }
+        // Day 9e: error right after TTS ("aborted"/channel handoff) is the
+        // classic Android dead session - retry with backoff, never strand.
+        if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 4) {
+          const gap =
+            RECONNECT_MS[Math.min(emptyTriesRef.current, RECONNECT_MS.length - 1)] + 300;
+          emptyTriesRef.current += 1;
+          window.setTimeout(() => startListening(), gap);
+        }
       };
+      // 15s hard cap: never let a hung session eat the demo; whatever was
+      // heard so far is submitted by onend/submit.
+      window.setTimeout(() => {
+        try {
+          r.stop?.();
+        } catch {
+          // no-op
+        }
+      }, 15000);
       r.start();
     } catch {
       setVoiceNote(true);
@@ -886,7 +956,14 @@ export default function KioskPage() {
             </span>
           </button>
 
-          {lastAssistant && <div className="voice-subtitle">{lastAssistant}</div>}
+          {lastAssistant && (
+            <div
+              className="voice-subtitle"
+              style={{ maxHeight: "32vh", overflowY: "auto" }}
+            >
+              {lastAssistant}
+            </div>
+          )}
 
           <button className="btn btn-ghost voice-exit" onClick={exitVoice}>
             ✕ {d.kiosk.voice.exitVoice}
