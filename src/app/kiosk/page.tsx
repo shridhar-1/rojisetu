@@ -782,8 +782,10 @@ export default function KioskPage() {
                     </span>
                   )}
                   <span className="bubble-text">{m.text}</span>
-                  {m.role === "assistant" && m.engine && (
-                    <span className="engine-badge">{m.engine}</span>
+                                    {m.role === "assistant" && m.engine && (
+                    <span className="engine-badge">
+                      {m.engine.startsWith("ai-") ? m.engine : "RojiSetu AI"}
+                    </span>
                   )}
                 </div>
               ))}
