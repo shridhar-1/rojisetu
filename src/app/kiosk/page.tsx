@@ -12,6 +12,7 @@ import {
   type Profile,
   type Topic,
 } from "@/lib/chat-extract";
+import { districtDisplay } from "@/lib/districts";
 
 // Beneficiary kiosk flow: language picker -> voice-ready chat interview ->
 // tap-to-fix review -> thanks (+ top-3 trades with reasons). Stateless
@@ -704,6 +705,16 @@ export default function KioskPage() {
     : 0;
   const lastAssistant =
     [...history].reverse().find((m) => m.role === "assistant")?.text ?? "";
+  // Day 11: canonical district for chips - the registry's native-script
+  // spelling in the current language, never a transliterated guess.
+  const chipValue = (t: Topic): string => {
+    const st = topics ? topics[t] : null;
+    if (!st || st.status !== "known") return d.kiosk.review.notAnswered;
+    if (t === "district" && st.canonical) {
+      return districtDisplay(st.canonical, lang ?? "en");
+    }
+    return st.value ?? d.kiosk.review.notAnswered;
+  };
 
   return (
     <>
@@ -843,11 +854,7 @@ export default function KioskPage() {
               {TOPIC_ORDER.map((t) => (
                 <button key={t} className="fix-chip" onClick={() => reask(t)}>
                   <div className="chip-topic">{topicLabel(t, lang ?? "en")}</div>
-                  <div className="chip-value">
-                    {topics[t].status === "known" && topics[t].value
-                      ? topics[t].value
-                      : d.kiosk.review.notAnswered}
-                  </div>
+                  <div className="chip-value">{chipValue(t)}</div>
                 </button>
               ))}
             </div>

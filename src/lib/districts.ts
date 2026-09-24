@@ -9,6 +9,8 @@
 // The 2-repair cap in chat-extract.ts is the escape valve: a perfectly valid
 // district we have not listed yet is accepted raw on the third attempt.
 
+import type { Lang } from "./i18n";
+
 export interface DistrictHit {
   en: string; // canonical English name
   state: string; // canonical English state name
@@ -56,34 +58,34 @@ const DISTRICTS: [string, string, ...string[]][] = [
   ["Bengaluru Urban", "Karnataka", "ಬೆಂಗಳೂರು", "बंगलौर", "बेंगलुरु", "bangalore", "bengaluru"],
   ["Bengaluru Rural", "Karnataka", "ಬೆಂಗಳೂರು ಗ್ರಾಮಾಂತರ"],
   ["Ramanagara", "Karnataka", "ರಾಮನಗರ"],
-  ["Kolar", "Karnataka", "कोलार"],
+  ["Kolar", "Karnataka", "कोलार", "कोलार"],
   ["Chikkaballapur", "Karnataka", "ಚಿಕ್ಕಬಳ್ಳಾಪುರ"],
   ["Tumakuru", "Karnataka", "ತುಮಕೂರು", "tumkur"],
-  ["Chitradurga", "Karnataka", "ಚિત್ರದುર્ગ"],
+  ["Chitradurga", "Karnataka", "ಚित्रದುರ್ಗ"],
   ["Davangere", "Karnataka", "ದಾವಣಗೆರೆ"],
   ["Shivamogga", "Karnataka", "ಶಿವಮೊಗ್ಗ", "shimoga"],
   ["Mysuru", "Karnataka", "ಮೈಸೂರು", "mysore", "मैसूर"],
   ["Mandya", "Karnataka", "ಮಂಡ್ಯ"],
-  ["Hassan", "Karnataka", "हัसन", "ಹಾಸನ"],
-  ["Kodagu", "Karnataka", "కోಡాగు", "ಕೊಡಗು", "coorg", "madikeri"],
-  ["Chikkamagaluru", "Karnataka", "ಚಿಕ್ಕಮಗಳೂರು", "chikmagalur"],
-  ["Dakshina Kannada", "Karnataka", "ದಕ್ಷಿಣ ಕನ್ನಡ", "mangalore", "mangaluru", "ಮಂಗಳೂರು"],
+  ["Hassan", "Karnataka", "हसन", "ಹಾಸನ"],
+  ["Kodagu", "Karnataka", "কোডागु", "ಕೊಡಗು", "coorg", "madikeri"],
+  ["Chikkamagaluru", "Karnataka", "ಚик್ಕಮಗಳೂರು", "chikmagalur"],
+  ["Dakshina Kannada", "Karnataka", "ದಕ్షಿಣ ಕನ್ನಡ", "mangalore", "mangaluru", "ಮಂಗಳೂರು"],
   ["Udupi", "Karnataka", "ಉಡುಪಿ"],
   ["Uttara Kannada", "Karnataka", "ಉತ್ತರ ಕನ್ನಡ", "karwar", "ಕಾರವಾರ"],
   ["Belagavi", "Karnataka", "बेळगावी", "ಬೆಳಗಾವಿ", "belgaum", "बेलगावी"],
-  ["Vijayapura", "Karnataka", "ವಿಜಯಪುರ", "bijapur", "बिजापुर"],
-  ["Bagalkot", "Karnataka", "बागलकोट", "ಬಾಗಲಕೋಟೆ"],
-  ["Dharwad", "Karnataka", "धारवाड", "ಧಾರವಾಡ", "hubli", "hubballi", "ಹುಬ్బಳ್ಳಿ"],
+  ["Vijayapura", "Karnataka", "ವಿಜయಪುರ", "bijapur", "बिजापुर"],
+  ["Bagalkot", "Karnataka", "बागलकोट", "ಬಾಗಲಕೋಟे"],
+  ["Dharwad", "Karnataka", "धारवाड", "ಧಾರವಾಡ", "hubli", "hubballi", "ಹੁಬ್ಬಳ್ಳಿ"],
   ["Gadag", "Karnataka", "गडग", "ಗಡಗ"],
   ["Haveri", "Karnataka", "हावेरी", "ಹಾವೇರಿ"],
   ["Kalaburagi", "Karnataka", "ಕಲಬುರಗಿ", "gulbarga"],
   ["Yadgir", "Karnataka", "यादगीर", "ಯಾದಗಿರಿ"],
-  ["Bidar", "Karnataka", "बीदर", "ಬಿದರ್"],
+  ["Bidar", "Karnataka", "बीदर", "ಬಿದರ్"],
   ["Ballari", "Karnataka", "बळ्ळारी", "ಬಳ್ಳಾರಿ", "bellary"],
   ["Vijayanagara", "Karnataka", "विजयनगर", "ವಿಜಯನಗರ", "hospete"],
   ["Koppal", "Karnataka", "कोप्पल", "ಕೊಪ್ಪಳ"],
   ["Raichur", "Karnataka", "रायचूर", "ರಾಯಚೂರು"],
-  ["Chamarajanagar", "Karnataka", "ಚಾಮರಾಜನಗರ"],
+  ["Chamarajanagar", "Karnataka", "ಚಾಮರಾಜನಗర"],
   // --- West Bengal (bn) ---
   ["Kolkata", "West Bengal", "কলকাতা", "कलकत्ता", "calcutta"],
   ["Howrah", "West Bengal", "হাওড়া", "हावड़ा"],
@@ -121,10 +123,10 @@ const DISTRICTS: [string, string, ...string[]][] = [
   ["Salem", "Tamil Nadu", "சேலம்", "सेलम"],
   ["Namakkal", "Tamil Nadu", "நாமக்கல்"],
   ["Erode", "Tamil Nadu", "ஈரோடு", "इरोड"],
-  ["Tiruppur", "Tamil Nadu", "திருப்பூர்", "tirupur", "तिरुप्पुर"],
+  ["Tiruppur", "Tamil Nadu", "தியுப்பூர்", "tirupur", "तिरुप्पुर"],
   ["Coimbatore", "Tamil Nadu", "கோயம்புத்தூர்", "covai", "कयंबतूर", "कोयंबटूर"],
   ["Nilgiris", "Tamil Nadu", "நீலகிரி", "ooty", "ऊटी", "udhagamandalam"],
-  ["Tiruchirappalli", "Tamil Nadu", "திருச்சிராப்பள்ளி", "trichy", "तिरुचि", "तिरुचिरापल्ली"],
+  ["Tiruchirappalli", "Tamil Nadu", "திருச்சிராப்பள்ளி", "trichy", "तिरुचि", "तিরுचिरापल्ली"],
   ["Karur", "Tamil Nadu", "கரூர்"],
   ["Perambalur", "Tamil Nadu", "பெரம்பலூர்"],
   ["Ariyalur", "Tamil Nadu", "அரியலூர்"],
@@ -132,8 +134,8 @@ const DISTRICTS: [string, string, ...string[]][] = [
   ["Nagapattinam", "Tamil Nadu", "நாகப்பட்டினம்"],
   ["Pudukkottai", "Tamil Nadu", "புதுக்கோட்டை"],
   ["Madurai", "Tamil Nadu", "மதுரை", "मदुरै"],
-  ["Theni", "Tamil Nadu", "தேனி"],
-  ["Dindigul", "Tamil Nadu", "திண்டுக்கல்"],
+  ["Theni", "Tamil Nadu", "தேனি"],
+  ["Dindigul", "Tamil Nadu", "கிண்டுக்கல்", "திண்டுக்கல்"],
   ["Sivaganga", "Tamil Nadu", "சிவகங்கை"],
   ["Virudhunagar", "Tamil Nadu", "விருதுநகர்"],
   ["Ramanathapuram", "Tamil Nadu", "ராமநாதபுரம்"],
@@ -168,7 +170,7 @@ const DISTRICTS: [string, string, ...string[]][] = [
   ["Chittoor", "Andhra Pradesh", "చిత్తూరు", "चित्तूर"],
   ["Tirupati", "Andhra Pradesh", "తిరుపతి", "तिरुपति"],
   ["Kakinada", "Andhra Pradesh", "కాకినాడ", "కాకినాడా", "काकीनाडा"],
-  ["Rajahmundry", "Andhra Pradesh", "రాజమహేంద్రవరం", "राजमुंदरी"],
+  ["Rajahmundry", "Andhra Pradesh", "రాజమహేంద్రவరం", "राजमुंदरी"],
   ["Ongole", "Andhra Pradesh", "ఒంగోలు", "ओंगोल"],
   ["Eluru", "Andhra Pradesh", "ఏలూరు", "एलुर"],
   ["Srikakulam", "Andhra Pradesh", "శ్రీకాకుళం", "श्रीकाकुलम"],
@@ -215,7 +217,7 @@ const DISTRICTS: [string, string, ...string[]][] = [
   ["Dhanbad", "Jharkhand", "धनबाद"],
   ["Bokaro", "Jharkhand", "बोकारो"],
   ["Amritsar", "Punjab", "अमृतसर"],
-  ["Ludhiana", "Punjab", "लुधियाना"],
+  ["Ludhiana", "Punjab", "लुधியाना"],
   ["Jalandhar", "Punjab", "जालंधर"],
   ["Patiala", "Punjab", "पटियाला"],
   ["Chandigarh", "Chandigarh", "चंडीगढ़"],
@@ -238,7 +240,8 @@ const DISTRICTS: [string, string, ...string[]][] = [
 
 const SKIP_WORDS = new Set([
   "district", "dist", "state", "में", "का", "की", "के", "से", "राज्य", "जिला", "ज़िला", "जिल्हा",
-  "जिल्ह्यात", "मध्ये", "জেলা", "এর", "আর", "तम", "जिल्ला", "जिल्लालो", "जिल्ल्यात",
+  "जिल्ह्यात", "मध्ये", "मुंबईपासून", "তন্ন", "এর", "आहे", "আর", "तम", "ঝीलार", "རাज्य",
+  "जिल्ला", "जिल्लालो", "જિલ્લा", "जिल्ल्यात",
 ]);
 
 /**
@@ -251,7 +254,7 @@ function lev(a: string, b: string): number {
   let prev: number[] = new Array(b.length + 1);
   for (let j = 0; j <= b.length; j++) prev[j] = j;
   for (let i = 1; i <= a.length; i++) {
-    const cur: number[] = new Array(b.length + 1);
+    let cur: number[] = new Array(b.length + 1);
     cur[0] = i;
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
@@ -274,7 +277,35 @@ function normToken(s: string): string {
 /** How many edits are forgiven for a comparison of the shorter length n? */
 function budget(n: number): number {
   if (n <= 3) return 1;
+  if (n <= 7) return 2;
   return 2;
+}
+
+/**
+ * Day 11 strictness for the fuzzy paths: an approximate spelling may only
+ * win when it shares a real beginning with the candidate (code points,
+ * script-agnostic). "india" can never fuzzy-match Gondia, but "puna" still
+ * fuzzy-matches Pune. Pair matches additionally share a real ending, so
+ * short junk sentences ("how are you") cannot marry Howrah by chance.
+ */
+function commonPrefix(a: string, b: string): number {
+  const ac = [...a];
+  const bc = [...b];
+  let n = 0;
+  while (n < ac.length && n < bc.length && ac[n] === bc[n]) n++;
+  return n;
+}
+
+function commonSuffix(a: string, b: string): number {
+  const ac = [...a];
+  const bc = [...b];
+  let n = 0;
+  while (
+    n < ac.length &&
+    n < bc.length &&
+    ac[ac.length - 1 - n] === bc[bc.length - 1 - n]
+  ) n++;
+  return n;
 }
 
 /**
@@ -286,7 +317,12 @@ function budget(n: number): number {
 export function resolveDistrict(text: string): DistrictHit | null {
   const norm = normToken(text);
   if (!norm) return null;
+  // Day 11: spaced and run-together ("speech-to-text glued") views of the
+  // answer. "uttarakannadadalli" and native locatives like
+  // "ಉತ್ತರ ಕನ್ನಡದಲ್ಲಿ" only resolve through the flat one.
+  const normFlat = norm.replace(/\s+/g, "");
 
+  // free exact containment first (strongest signal)
   let best: DistrictHit | null = null;
   let bestDist = Number.MAX_SAFE_INTEGER;
   let bestSpellLen = 0;
@@ -294,37 +330,76 @@ export function resolveDistrict(text: string): DistrictHit | null {
   const consider = (spellRaw: string, en: string, state: string) => {
     const spell = normToken(spellRaw);
     if (spell.length < 3) return;
-    // exact containment first (strongest signal)
+    const spellFlat = spell.replace(/\s+/g, "");
     if (norm.includes(spell)) {
-      if (0 < bestDist || (0 === bestDist && spell.length > bestSpellLen)) {
+      const dist = 0;
+      if (dist < bestDist || (dist === bestDist && spell.length > bestSpellLen)) {
         best = { en, state };
-        bestDist = 0;
+        bestDist = dist;
         bestSpellLen = spell.length;
       }
       return;
     }
-    // approximate: single-token windows
+    // Day 11: run-together containment - the glued spelling itself contains
+    // the district's glued name (locative suffixes stay attached to it).
+    if (spellFlat.length >= 5 && normFlat.includes(spellFlat)) {
+      const dist = 0;
+      if (dist < bestDist || (dist === bestDist && spellFlat.length > bestSpellLen)) {
+        best = { en, state };
+        bestDist = dist;
+        bestSpellLen = spellFlat.length;
+      }
+      return;
+    }
+    // approximate: walk windows of 1-2 tokens and compare
     for (const token of norm.split(" ")) {
       if (token.length < 3 || SKIP_WORDS.has(token)) continue;
       const n = Math.min(token.length, spell.length);
-      if (Math.abs(token.length - spell.length) > budget(n)) continue;
-      const d = lev(token, spell);
-      if (d <= budget(n)) {
-        if (d < bestDist || (d === bestDist && spell.length > bestSpellLen)) {
-          best = { en, state };
-          bestDist = d;
-          bestSpellLen = spell.length;
+      if (Math.abs(token.length - spell.length) <= budget(n)) {
+        const d = lev(token, spell);
+        if (d <= budget(n) && commonPrefix(token, spell) >= 3) {
+          const key = d;
+          if (key < bestDist || (key === bestDist && spell.length > bestSpellLen)) {
+            best = { en, state };
+            bestDist = key;
+            bestSpellLen = spell.length;
+          }
+        }
+      }
+      // Day 11: flattened fuzzy compare, prefix-guarded: the glued token and
+      // the glued spelling must SHARE the first 4 code points, so a loose
+      // edit-distance can never marry unrelated districts.
+      if (
+        spellFlat.length >= 5 &&
+        token.length >= 5 &&
+        token.startsWith(spellFlat.slice(0, 4))
+      ) {
+        const nf = Math.min(token.length, spellFlat.length);
+        if (Math.abs(token.length - spellFlat.length) <= budget(nf) + 2) {
+          const d = lev(token, spellFlat);
+          if (d <= budget(nf)) {
+            const key = d + 0.5; // slightly weaker than a spaced token hit
+            if (key < bestDist || (key === bestDist && spellFlat.length > bestSpellLen)) {
+              best = { en, state };
+              bestDist = key;
+              bestSpellLen = spellFlat.length;
+            }
+          }
         }
       }
     }
-    // two-token windows for compound names ("new delhi", "east khasi hills")
+    // two-token windows for compound names ("north 24", "new delhi")
     const toks = norm.split(" ").filter((t) => t.length >= 2 && !SKIP_WORDS.has(t));
     for (let i = 0; i < toks.length - 1; i++) {
       const pair = toks[i] + " " + toks[i + 1];
       const n = Math.min(pair.length, spell.length);
       if (Math.abs(pair.length - spell.length) > budget(n) + 1) continue;
       const d = lev(pair, spell);
-      if (d <= budget(n) + 1) {
+      if (
+        d <= budget(n) + 1 &&
+        commonPrefix(pair, spell) >= 3 &&
+        commonSuffix(pair, spell) >= 2
+      ) {
         const key = d + 1; // slight penalty vs single-token hits
         if (key < bestDist || (key === bestDist && spell.length > bestSpellLen)) {
           best = { en, state };
@@ -343,3 +418,32 @@ export function resolveDistrict(text: string): DistrictHit | null {
 }
 
 export const DISTRICT_COUNT = DISTRICTS.length;
+
+// ---------------------------------------------------------------------------
+// Day 11: review-time display. The profile stores the canonical English form
+// ("Uttara Kannada (Karnataka)"); the beneficiary reads their own script, so
+// chips show the registry's native-script spelling in the current language.
+// ---------------------------------------------------------------------------
+
+const SCRIPT_RANGE: Record<Lang, [number, number] | null> = {
+  en: null,
+  hi: [0x0900, 0x097f],
+  mr: [0x0900, 0x097f],
+  bn: [0x0980, 0x09ff],
+  kn: [0x0c80, 0x0cff],
+  ta: [0x0b80, 0x0bff],
+  te: [0x0c00, 0x0c7f],
+};
+
+export function districtDisplay(canonical: string, lang: Lang): string {
+  const rng = SCRIPT_RANGE[lang];
+  if (!rng) return canonical;
+  const en = canonical.replace(/\s+\([^()]*\)\s*$/, "");
+  const row = DISTRICTS.find((r) => r[0] === en);
+  if (!row) return canonical;
+  for (const alias of row.slice(2) as string[]) {
+    const c = alias.codePointAt(0) ?? 0;
+    if (c >= rng[0] && c <= rng[1]) return alias;
+  }
+  return canonical;
+}
