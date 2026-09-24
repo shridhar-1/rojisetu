@@ -591,3 +591,380 @@ body { background: linear-gradient(180deg, #f0fdf4 0%, #fefce7 55%, #fdf2f8 100%
 .entry-card:hover { transform: translateY(-2px); border-color: #22c55e; box-shadow: 0 16px 34px -16px rgba(20, 83, 45, 0.45); }
 .entry-card h2 { margin: 0 0 4px; font-size: 1.15rem; color: #052e16; }
 .entry-card p { margin: 0; color: #475569; font-size: 0.92rem; }
+/* ============================================================
+   Day 15: "real RojiSetu" landing takeover + Saathi avatar.
+   All classes are landing-scoped (.hero-*, .stat*, .step-*, ...)
+   so the kiosk screens are untouched.
+   ============================================================ */
+
+/* tricolor ribbon */
+.tricolor {
+  display: flex;
+  height: 5px;
+  width: 100%;
+}
+.tricolor span { flex: 1; display: block; }
+.tricolor-saffron { background: #f97316; }
+.tricolor-white { background: #fefce8; }
+.tricolor-green { background: #15803d; }
+
+/* ministry strip */
+.govt-strip {
+  background: #052e16;
+  color: #bbf7d0;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.govt-strip-in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  flex-wrap: wrap;
+}
+.govt-strip-dot { color: #f59e0b; }
+.govt-strip-right {
+  margin-left: auto;
+  color: #fde68a;
+  font-weight: 600;
+}
+
+/* header with nav */
+.home-header .container { position: relative; }
+.home-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.home-nav-link {
+  color: #dcfce7;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(187, 247, 208, 0.4);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.home-nav-link:hover {
+  background: rgba(187, 247, 208, 0.18);
+  color: #ffffff;
+}
+
+/* hero */
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 36px;
+  align-items: center;
+  padding-top: 34px;
+  padding-bottom: 10px;
+}
+.hero-eyebrow {
+  display: inline-block;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.hero-title {
+  font-size: 1.9rem;
+  line-height: 1.28;
+  color: #052e16;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.hero-title-en {
+  display: block;
+  font-size: 1.06rem;
+  font-weight: 600;
+  color: #166534;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+.hero-sub {
+  margin-top: 12px;
+  color: #475569;
+  font-size: 0.98rem;
+  max-width: 52ch;
+}
+.hero-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.btn-hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 13px 22px;
+  border-radius: 999px;
+  transition: transform 0.13s ease, box-shadow 0.13s ease;
+}
+.btn-hero:hover { transform: translateY(-2px); }
+.btn-hero-primary {
+  background: linear-gradient(135deg, #15803d, #166534);
+  color: #ffffff;
+  box-shadow: 0 12px 24px -10px rgba(20, 83, 45, 0.55);
+}
+.btn-hero-primary:hover {
+  box-shadow: 0 16px 30px -10px rgba(20, 83, 45, 0.6);
+}
+.btn-hero-ghost {
+  background: #ffffff;
+  color: #14532d;
+  border: 2px solid #bbf7d0;
+}
+
+.hero-art {
+  position: relative;
+  margin: 0;
+}
+.hero-art img {
+  width: 100%;
+  display: block;
+  border-radius: 22px;
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 30px 60px -24px rgba(20, 83, 45, 0.45),
+    0 0 0 1px rgba(187, 247, 208, 0.6);
+}
+.hero-art-badge {
+  position: absolute;
+  left: 16px;
+  bottom: -18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 10px 16px 10px 10px;
+  box-shadow: 0 14px 30px -12px rgba(20, 83, 45, 0.4);
+  font-size: 0.85rem;
+  color: #14532d;
+  line-height: 1.3;
+}
+.hero-art-badge small { color: #64748b; }
+.hero-art-badge-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #f59e0b;
+  flex: 0 0 auto;
+}
+.hero-art-badge-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: none;
+  box-shadow: none;
+}
+
+/* stats strip */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 44px;
+  margin-bottom: 8px;
+}
+.stat {
+  background: #ffffff;
+  border: 1px solid #bbf7d0;
+  border-radius: 18px;
+  text-align: center;
+  padding: 20px 10px;
+  box-shadow: 0 10px 26px -16px rgba(20, 83, 45, 0.35);
+}
+.stat-num {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #15803d;
+  line-height: 1;
+}
+.stat-label {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* sections */
+.section-title {
+  margin-top: 40px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #052e16;
+}
+.section-sub {
+  color: #64748b;
+  font-size: 0.92rem;
+  margin-top: 4px;
+  max-width: 62ch;
+}
+
+/* how-it-works steps */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+.step-card {
+  background: #ffffff;
+  border: 1px solid rgba(187, 247, 208, 0.8);
+  border-radius: 18px;
+  padding: 22px 18px;
+  box-shadow: 0 14px 30px -18px rgba(20, 83, 45, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.step-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 36px -18px rgba(20, 83, 45, 0.45);
+}
+.step-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #f0fdf4, #fef9c3);
+  border: 1px solid #bbf7d0;
+  margin-bottom: 12px;
+}
+.step-card h3 {
+  font-size: 1rem;
+  color: #14532d;
+  margin-bottom: 6px;
+}
+.step-card p {
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.55;
+}
+
+/* trades */
+.trades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.trade {
+  background: #ffffff;
+  border: 1.5px solid #bbf7d0;
+  color: #14532d;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 9px 16px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px -6px rgba(20, 83, 45, 0.25);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.trade:hover {
+  transform: translateY(-2px);
+  border-color: #22c55e;
+}
+
+/* big entry cards */
+.entries {
+  margin-top: 44px;
+  display: grid;
+  gap: 16px;
+}
+.entry-card-big {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-decoration: none;
+  border-radius: 20px;
+  padding: 24px 22px;
+  border: 1px solid rgba(187, 247, 208, 0.75);
+  background: linear-gradient(120deg, #ffffff 0%, #f0fdf4 100%);
+  box-shadow: 0 16px 34px -18px rgba(20, 83, 45, 0.35);
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.entry-card-big:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 40px -18px rgba(20, 83, 45, 0.5);
+}
+.entry-emoji {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, #dcfce7, #fef9c3);
+  border: 1px solid #bbf7d0;
+}
+.entry-official .entry-emoji {
+  background: linear-gradient(135deg, #fef3c7, #ffedd5);
+  border-color: #fde68a;
+}
+.entry-text h2 {
+  color: #14532d;
+  font-size: 1.15rem;
+  margin-bottom: 3px;
+}
+.entry-text p {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+.entry-arrow {
+  margin-left: auto;
+  font-size: 1.5rem;
+  color: #15803d;
+  font-weight: 800;
+  transition: transform 0.14s ease;
+}
+.entry-card-big:hover .entry-arrow {
+  transform: translateX(5px);
+}
+
+.home-footer {
+  margin-top: 40px;
+}
+
+/* Saathi avatar inside kiosk chat bubbles (optional Day-15 kiosk patch) */
+.bubble-avatar {
+  padding: 0;
+  overflow: hidden;
+}
+.bubble-avatar .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+/* responsive */
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding-top: 24px;
+  }
+  .hero-title { font-size: 1.55rem; }
+  .steps { grid-template-columns: 1fr; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .govt-strip-right { display: none; }
+}

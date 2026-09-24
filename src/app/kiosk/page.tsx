@@ -777,8 +777,9 @@ export default function KioskPage() {
                   }`}
                 >
                   {m.role === "assistant" && (
-                    <span className="bubble-avatar" aria-hidden="true">
-                      🤝
+                                        <span className="bubble-avatar" aria-hidden="true">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/saathi.jpg" alt="" className="avatar-img" />
                     </span>
                   )}
                   <span className="bubble-text">{m.text}</span>
