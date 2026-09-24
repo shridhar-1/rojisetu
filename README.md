@@ -4,7 +4,7 @@ The livelihood bridge. An AI voice assistant for livelihood mapping and
 NSQF-aligned skilling under PM-AJAY (Grant-in-Aid), Ministry of Social
 Justice and Empowerment.
 
-SIH 2026, problem statement SIH 26097. Team EcoLogic (Team ID 127477).
+SIH 2026, problem statement SIH 26097. Team EcoLogic (Team ID ******).
 
 The people this scheme serves often cannot read a form. But every one of
 them can speak. RojiSetu holds a short, empathetic voice conversation in
