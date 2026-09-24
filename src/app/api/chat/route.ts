@@ -5,7 +5,12 @@ import {
   sanitizeCandidate,
   type ChatMessage,
 } from "@/lib/chat-extract";
-import { rephraseQuestionWithAI, smallTalkWithAI } from "@/lib/ai-router";
+import {
+  rephraseQuestionWithAI,
+  smallTalkWithAI,
+  ackAndAskWithAI,
+  answerUserQuestionWithAI,
+} from "@/lib/ai-router";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +75,52 @@ function looksLikeSmallTalk(text: string): boolean {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Day 13 user-question detector. The beneficiary is asking the ASSISTANT
+// something ("nan en madbeku?", "what job?", "why is govt doing this?").
+// Signals: a question mark, question words (all 7 scripts + transliteration),
+// or domain words (job/training/scheme/govt) inside a SHORT utterance. The
+// lane below only fires for utterances the ENGINE rejected as answers, so a
+// real answer can never divert into a chat Q&A.
+// ---------------------------------------------------------------------------
+
+const USER_QUESTION_TERMS: string[] = [
+  // english / transliteration
+  "what", "why", "how", "when", "will i", "should i", "can i", "do i", "is it",
+  "madbeku", "maadbeku", "madbeka", "beku", "yake", "yenu", "hege", "yelli",
+  "yavaga", "barutha", "sigutta", "sigutha", "sikkodu", "sikkitava",
+  "kya hai", "kaise", "kyun", "kyoon", "kab", "milega", "milegi", "hoga",
+  "hogi", "karna", "kya kar", "kab tak", "why govt", "this scheme",
+  // domain words (short utterances only, see length guard below)
+  "job", "jobs", "training", "scheme", "yojana", "sarkar", "government",
+  "govt", "pm-ajay", "ajay", "certificate", "salary", "paisa", "money",
+  // devanagari (hi/mr)
+  "क्या", "क्यों", "कैसे", "कब", "मिलेगा", "मिलेगी", "होगा", "होगी", "करना",
+  "नौकरी", "काम", "प्रशिक्षण", "योजना", "सरकार", "काय", "कसा", "कसे", "करायचं",
+  "कशाला",
+  // kannada
+  "ಏನು", "ಯಾವ", "ಏಕೆ", "ಹೇಗೆ", "ಬೇಕು", "ಮಾಡಬೇಕು", "ಸಿಗುತ್ತೆ", "ಬರೆ", "ಇಲ್ಲಿ",
+  "ಕೆಲಸ", "ನೌಕರಿ", "ತರಬೇತಿ", "ಯೋಜನೆ", "सर्kaар",
+  // bengali
+  "কি", "কেন", "কীভাবে", "কখন", "পাব", "চাকরি", "প্রশিক্ষণ", "সরকার",
+  // tamil
+  "என்ன", "எப்படி", "ஏன்", "எப்போது", "கிடைக்கும்", "வேலை", "அரசு", "திட்டம்",
+  // telugu
+  "ఏమిటి", "ఎలా", "ఎందుకు", "ఎప్పుడు", "ఉద్యోగం", "ప్రభుత్వం", "పథకం",
+];
+
+function looksLikeUserQuestion(text: string): boolean {
+  const raw = text.trim().toLowerCase();
+  if (!raw || raw.length > 200) return false;
+  if (raw.endsWith("?") || raw.endsWith("？")) return true;
+  if (/\d/.test(raw) && raw.length <= 12) return false; // digit-led = an answer
+  const t = raw.replace(/[.!?,।;:]+/g, " ").replace(/\s+/g, " ").trim();
+  for (const term of USER_QUESTION_TERMS) {
+    if (t.includes(term)) return true;
+  }
+  return false;
+}
+
 function lastUserText(history: ChatMessage[]): string {
   for (let i = history.length - 1; i >= 0; i--) {
     if (history[i].role === "user") return history[i].text;
@@ -92,6 +143,7 @@ export async function POST(req: NextRequest) {
     const lang = toLang(typeof body.lang === "string" ? body.lang : null);
     const history = sanitizeHistory(body.history);
     const allowAI = body.ai !== false;
+    const userText = lastUserText(history);
 
     const turn = getDeterministicTurn(history, lang);
     let reply = turn.reply;
@@ -104,11 +156,13 @@ export async function POST(req: NextRequest) {
       turn.topic &&
       !turn.repair
     ) {
-      // Lane 1: warm rephrase. Only genuine next-questions are offered to the
-      // AI lanes. Openings, acks, repairs and the done screen stay
-      // deterministic.
-      const ai = await rephraseQuestionWithAI({ base: turn.reply, lang });
-      aiLane = ai.reason;
+      // Lane 1: accepted answer -> warm acknowledgment + next question (Day
+      // 13a). Only genuine next-questions go to the AI lanes: openings,
+      // repairs and the done screen stay deterministic.
+      const ai = userText
+        ? await ackAndAskWithAI({ userText, base: turn.reply, lang })
+        : await rephraseQuestionWithAI({ base: turn.reply, lang });
+      aiLane = userText ? "ackask:" + ai.reason : ai.reason;
       if (ai.text) {
         // LLM-proof: candidate must ask the expected topic and that topic
         // must still be unknown, else the deterministic question ships.
@@ -125,14 +179,39 @@ export async function POST(req: NextRequest) {
       allowAI &&
       turn.repair === true &&
       turn.topic &&
-      looksLikeSmallTalk(lastUserText(history))
+      looksLikeSmallTalk(userText)
     ) {
       // Lane 2 (Day 12): small-talk. The utterance was NOT an answer (engine
       // already wants a repair), and it looks like a greeting/thanks/filler:
       // the REAL AI answers warmly and gently re-asks the same question.
-      const userText = lastUserText(history);
       const ai = await smallTalkWithAI({ userText, question: turn.reply, lang });
       aiLane = "smalltalk:" + ai.reason;
+      if (ai.text) {
+        const checked = sanitizeCandidate(
+          ai.text,
+          turn.topic,
+          turn.profile,
+          turn.reply
+        );
+        reply = checked.text;
+        engine = checked.engine === "ai-ok" ? ai.engine : "guard-swap";
+      }
+    } else if (
+      allowAI &&
+      turn.repair === true &&
+      turn.topic &&
+      looksLikeUserQuestion(userText)
+    ) {
+      // Lane 3 (Day 13b): the beneficiary is asking US something relevant to
+      // livelihood/scheme/process. The REAL AI answers inside the domain
+      // truth (hopeful, never promising), then returns to the pending
+      // question. Candidate is validated exactly like other lanes.
+      const ai = await answerUserQuestionWithAI({
+        userQuestion: userText,
+        pending: turn.reply,
+        lang,
+      });
+      aiLane = "userq:" + ai.reason;
       if (ai.text) {
         const checked = sanitizeCandidate(
           ai.text,

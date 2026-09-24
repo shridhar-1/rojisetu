@@ -277,3 +277,86 @@ export async function smallTalkWithAI(opts: {
     lang: opts.lang,
   });
 }
+// ---------------------------------------------------------------------------
+// Day 13 conversation lanes.
+// A. ackAndAskWithAI: after a REAL answer the assistant acknowledges warmly
+//    (hopeful, but NEVER promising jobs/money) and asks the next question.
+// B. answerUserQuestionWithAI: the beneficiary asks US something mid-interview
+//    ("nan en madbeku?", "what job will I get?"). The answer stays inside the
+//    PM-AJAY / RojiSetu domain context, gently returns to the pending
+//    question, and the hard rules forbid promising outcomes or inventing
+//    scheme specifics.
+// ---------------------------------------------------------------------------
+
+const DOMAIN_CONTEXT =
+  "Context: RojiSetu is a voice-first livelihood assistant prototype for " +
+  "PM-AJAY, a real Government of India scheme under the Ministry of Social " +
+  "Justice and Empowerment. PM-AJAY's Grant-in-Aid component supports " +
+  "Scheduled Caste communities with skill training, livelihood promotion " +
+  "and enterprise support. Governments run such schemes so that evaluators " +
+  "and beneficiaries are matched to the RIGHT trade for their region and " +
+  "situation, reducing dropouts and improving incomes. RojiSetu itself asks " +
+  "7 short questions (education, family occupation, current livelihood, " +
+  "skills and interests, mobility, self-employment vs wage preference, and " +
+  "district) and then suggests NSQF-aligned training / livelihood options. " +
+  "You may explain this purpose kindly. ";
+
+const ACK_AND_ASK_SYSTEM = (langName: string) =>
+  `You are RojiSetu, a kind livelihood assistant for rural India. The ` +
+  `beneficiary just gave a real answer to the previous question. Reply in ` +
+  `${langName} ONLY: (1) one short warm, encouraging acknowledgment - ` +
+  `hopeful, but NEVER promise jobs, money, selection or outcomes ("you are ` +
+  `on the right track" is fine, "you will get a job" is not); (2) then the ` +
+  `interview question below, asked naturally. At most two short sentences ` +
+  `total, spoken style, no lists, no notes. Output only the reply.`;
+
+export async function ackAndAskWithAI(opts: {
+  userText: string;
+  base: string;
+  lang: Lang;
+}): Promise<AIResult> {
+  return runAICustomTask({
+    task: {
+      system: ACK_AND_ASK_SYSTEM(LANG_NAMES[opts.lang]),
+      user:
+        `Beneficiary's answer: "${opts.userText}"\n` +
+        `Next interview question: "${opts.base}"`,
+      maxTokens: 150,
+    },
+    lang: opts.lang,
+  });
+}
+
+const USER_QUESTION_SYSTEM = (langName: string) =>
+  `You are RojiSetu, a kind livelihood assistant conducting a friendly ` +
+  `intake interview with a beneficiary who may have low literacy. Answer ` +
+  `their question in ${langName} ONLY, simply and warmly, in at most three ` +
+  `short sentences, then ask the pending interview question below naturally. ` +
+  `Hard rules: never promise jobs, income, selection or guaranteed outcomes ` +
+  `(- the assistant may HOPE and encourage, never guarantee); never invent ` +
+  `scheme amounts, dates, offices or certificates; use simple words; if the ` +
+  `question is unknowable, say kindly that the assistant is learning too, ` +
+  `and move on. ` +
+  DOMAIN_CONTEXT +
+  ` Output only the reply text.`;
+
+export async function answerUserQuestionWithAI(opts: {
+  userQuestion: string;
+  pending: string;
+  lang: Lang;
+}): Promise<AIResult> {
+  return runAICustomTask({
+    task: {
+      system: USER_QUESTION_SYSTEM(LANG_NAMES[opts.lang]),
+      user:
+        `The beneficiary asks: "${opts.userQuestion}"\n` +
+        `Pending interview question to ask afterwards: "${opts.pending}"`,
+      maxTokens: 220,
+      validate: (t) => {
+        const x = t.trim();
+        return x.length >= 12 && x.length <= 380;
+      },
+    },
+    lang: opts.lang,
+  });
+}
