@@ -1660,46 +1660,49 @@ body {
   margin-bottom: 10px;
 }
 /* ============================================================
-   Day 17: dashboard hero art as the page BACKGROUND.
-   The office illustration becomes a banner behind the header,
-   fading into the readable dashboard below. Zero wasted space.
-   (.stat-grid exists only on the dashboard, so :has() scopes it.)
+   Dashboard hero: the office illustration as a BACKGROUND image.
+   The photo fills the banner (cover); a dark-green wash from the
+   bottom keeps the title + subtitle readable on top of the art.
    ============================================================ */
-body:has(.stat-grid) {
+.dash-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 340px;
+  margin: 4px 0 18px;
+  padding: 30px 28px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(187, 247, 208, 0.6);
+  box-shadow: 0 24px 48px -20px rgba(5, 46, 22, 0.55);
   background:
     linear-gradient(
       180deg,
-      rgba(5, 46, 22, 0.45) 0px,
-      rgba(20, 83, 45, 0.5) 200px,
-      rgba(240, 253, 244, 0.94) 480px,
-      #f8faf9 700px
+      rgba(5, 46, 22, 0.15) 0%,
+      rgba(5, 46, 22, 0.35) 55%,
+      rgba(5, 46, 22, 0.78) 100%
     ),
-    url("/dashboard-hero.png") center 22% / cover no-repeat,
+    url("/dashboard.jpeg") center 30% / cover no-repeat,
     linear-gradient(135deg, #14532d, #166534);
 }
 
-/* glassy header over the art */
-body:has(.stat-grid) .app-header {
-  background: rgba(5, 46, 22, 0.55);
-  box-shadow: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  margin-bottom: 0;
+.dash-hero-copy {
+  max-width: 640px;
 }
 
 /* title & subtitle in white over the banner art */
-body:has(.stat-grid) .page-title {
+.dash-hero .page-title {
   color: #ffffff;
   text-shadow: 0 2px 14px rgba(5, 46, 22, 0.65);
 }
-body:has(.stat-grid) .page-sub {
+.dash-hero .page-sub {
   color: #dcfce7;
+  text-shadow: 0 1px 10px rgba(5, 46, 22, 0.55);
 }
 
-/* give the hero room to breathe, then stats overlap its fade */
-body:has(.stat-grid) .stat-grid {
-  margin-top: 22vh;
-}
-body:has(.profile-row, .table-wrap) main.container {
-  padding-top: 4px;
+@media (max-width: 640px) {
+  .dash-hero {
+    min-height: 240px;
+    padding: 20px 16px;
+  }
 }

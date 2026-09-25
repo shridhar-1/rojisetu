@@ -176,19 +176,19 @@ export default async function DashboardPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        {/* mission banner: the district office at work */}
-        <section className="dash-hero">
+        {/* mission banner: the district office at work.
+            The illustration is NOT an <img> anymore — it is the section's
+            CSS background (see .dash-hero in globals.css). */}
+        <section
+          className="dash-hero"
+          role="img"
+          aria-label="District official reviewing livelihood pipeline with trained beneficiaries"
+        >
           <div className="dash-hero-copy">
             <h1 className="page-title">{d.dashboard.title}</h1>
             <p className="page-sub">{d.dashboard.subtitle}</p>
             {demoBanner && <div className="badge-demo">{d.dashboard.demoBanner}</div>}
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="dash-hero-img"
-            src="/dashboard.png"
-            alt="District official reviewing livelihood pipeline with trained beneficiaries"
-          />
         </section>
 
         <div className="stat-grid">
