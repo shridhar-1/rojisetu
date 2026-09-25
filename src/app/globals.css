@@ -1659,3 +1659,47 @@ body {
   box-shadow: 0 8px 20px -6px rgba(5, 46, 22, 0.5);
   margin-bottom: 10px;
 }
+/* ============================================================
+   Day 17: dashboard hero art as the page BACKGROUND.
+   The office illustration becomes a banner behind the header,
+   fading into the readable dashboard below. Zero wasted space.
+   (.stat-grid exists only on the dashboard, so :has() scopes it.)
+   ============================================================ */
+body:has(.stat-grid) {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(5, 46, 22, 0.45) 0px,
+      rgba(20, 83, 45, 0.5) 200px,
+      rgba(240, 253, 244, 0.94) 480px,
+      #f8faf9 700px
+    ),
+    url("/dashboard-hero.png") center 22% / cover no-repeat,
+    linear-gradient(135deg, #14532d, #166534);
+}
+
+/* glassy header over the art */
+body:has(.stat-grid) .app-header {
+  background: rgba(5, 46, 22, 0.55);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin-bottom: 0;
+}
+
+/* title & subtitle in white over the banner art */
+body:has(.stat-grid) .page-title {
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(5, 46, 22, 0.65);
+}
+body:has(.stat-grid) .page-sub {
+  color: #dcfce7;
+}
+
+/* give the hero room to breathe, then stats overlap its fade */
+body:has(.stat-grid) .stat-grid {
+  margin-top: 22vh;
+}
+body:has(.profile-row, .table-wrap) main.container {
+  padding-top: 4px;
+}
