@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       lang?: unknown;
       text?: unknown;
     };
-    const lang = toLang(typeof body.lang === "string" ? body.lang : null);
+    const lang = toLang(typeof body.text === "string" ? body.text : null);
     const text = typeof body.text === "string" ? body.text.trim() : "";
     if (!text || text.length > MAX_CHARS) {
       return NextResponse.json({ ok: false, engine: "bhashini", reason: "bad-text" });

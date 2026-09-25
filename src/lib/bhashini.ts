@@ -157,7 +157,7 @@ async function getConfig(): Promise<BhashiniConfig | null> {
 
 export interface VoiceResult {
   ok: boolean;
-  engine: string; // honesty ledger prefix
+  engine: string; // honesty ledger prefix, e.g. "bhashini"
   text?: string;
   audioB64?: string;
   reason?: string;

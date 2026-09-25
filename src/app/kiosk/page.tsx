@@ -47,101 +47,80 @@ const SPEECH_LANG: Record<Lang, string> = {
   mr: "mr-IN",
 };
 
-// Minimal structural types: the DOM SpeechRecognition typings are not in
+// Minimal structural type: the DOM SpeechRecognition typings are not in
 // this project's TS lib, so we describe only what this page uses.
-type RecognitionResultListLike = ArrayLike<{
-  0: { transcript: string };
-  isFinal?: boolean;
-}>;
-
 type SpeechRecognitionLike = {
   lang: string;
   interimResults: boolean;
-  continuous: boolean;
   maxAlternatives: number;
-  onresult: ((ev: { results: RecognitionResultListLike }) => void) | null;
+  onresult:
+    | ((ev: { results: { 0: { 0: { transcript: string } } } }) => void)
+    | null;
   onstart: (() => void) | null;
   onend: (() => void) | null;
-  onerror: ((ev?: { error?: string }) => void) | null;
+  onerror: (() => void) | null;
   start: () => void;
   abort?: () => void;
   stop?: () => void;
 };
 
 // ---------------------------------------------------------------------------
-// Day 9d echo filter for voice barge-in. While the bot speaks, a guarded mic
-// session hears BOTH the played-back TTS and the beneficiary. We compare the
-// guess with the bot's own script: heavy overlap -> self-echo (ignore);
-// anything else -> a genuine interruption. Content words only (stop-words
-// are stripped, so the bot's own sentence echoes match but a new answer does
-// not).
+// Bhashini lane helpers (Day 10): record microphone audio, render it to
+// 16kHz mono WAV, and base64-encode for the /api/voice/asr compute call.
 // ---------------------------------------------------------------------------
 
-const ECHO_STOP_WORDS = new Set([
-  "a", "an", "the", "is", "am", "are", "was", "were", "to", "of", "in", "on",
-  "and", "or", "my", "me", "i", "you", "your", "it", "he", "she", "we", "they",
-  "hai", "hain", "kya", "aap", "mera", "meri", "hoon", "nahi", "haan", "ka",
-  "ki", "ke", "ko", "hi", "mein", "se", "tha", "thi", "ho", "ao", "bata",
-]);
-
-function normalizeSpeech(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
 }
 
-// Fuzzy token equality: transliteration of Indic TTS can shift a word's tail
-// (e.g. "kaam" vs "kam"), so prefix-match in both directions.
-function sameToken(a: string, b: string): boolean {
-  return (
-    a === b ||
-    (a.length >= 3 && b.startsWith(a)) ||
-    (b.length >= 3 && a.startsWith(b))
-  );
-}
-
-function looksLikeEcho(userText: string, botText: string): boolean {
-  const u = normalizeSpeech(userText);
-  if (u.length < 3) return true; // too short to trust as an interruption
-  const b = normalizeSpeech(botText);
-  if (!b) return false;
-  const uToks = u.split(" ").filter((w) => !ECHO_STOP_WORDS.has(w));
-  if (uToks.length === 0) return true; // pure filler - ignore
-  const bToks = new Set(b.split(" ").filter((w) => !ECHO_STOP_WORDS.has(w)));
-  let hit = 0;
-  for (const w of uToks) {
-    for (const bw of bToks) {
-      if (sameToken(w, bw)) {
-        hit++;
-        break;
-      }
+async function blobToWavB64(blob: Blob): Promise<string> {
+  const raw = await blob.arrayBuffer();
+  const actx = new AudioContext();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await actx.decodeAudioData(raw);
+  } finally {
+    try {
+      await actx.close();
+    } catch {
+      // no-op
     }
   }
-  return hit / uToks.length >= 0.5;
-}
-
-// Day 9e: count content words the BOT never said. A genuine interruption
-// must carry at least 2 of these - a leaked syllable of our own TTS never
-// gets through both the echo filter AND this gate.
-function novelTokenCount(userText: string, botText: string): number {
-  const uToks = normalizeSpeech(userText)
-    .split(" ")
-    .filter((w) => !ECHO_STOP_WORDS.has(w) && w.length >= 2);
-  const bToks = normalizeSpeech(botText).split(" ");
-  let n = 0;
-  for (const w of uToks) {
-    let novel = true;
-    for (const bw of bToks) {
-      if (sameToken(w, bw)) {
-        novel = false;
-        break;
-      }
-    }
-    if (novel) n++;
+  const RATE = 16000;
+  const octx = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * RATE)), RATE);
+  const src = octx.createBufferSource();
+  src.buffer = decoded;
+  src.connect(octx.destination);
+  src.start();
+  const rendered = await octx.startRendering();
+  const pcm = rendered.getChannelData(0);
+  const out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) out.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  out.setUint32(4, 36 + pcm.length * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true); // PCM
+  out.setUint16(22, 1, true); // mono
+  out.setUint32(24, RATE, true);
+  out.setUint32(28, RATE * 2, true);
+  out.setUint16(32, 2, true);
+  out.setUint16(34, 16, true);
+  writeStr(36, "data");
+  out.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) {
+    const v = Math.max(-1, Math.min(1, pcm[i]));
+    out.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
   }
-  return n;
+  return bytesToBase64(new Uint8Array(out.buffer));
 }
 
 function speakReply(text: string, langCode: Lang, onend?: () => void) {
@@ -197,12 +176,31 @@ export default function KioskPage() {
   const langRef = useRef<Lang | null>(null);
   const screenRef = useRef<Screen>("picker");
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
-  const guardRef = useRef<SpeechRecognitionLike | null>(null); // barge-in session
-  const guardTokenRef = useRef(0); // kills stale guard callbacks after restart
   const emptyTriesRef = useRef(0); // consecutive no-transcript mic sessions (voice-mode retry)
   const speechTokenRef = useRef(0); // guards the TTS watchdog against stale checks
   const voicePhaseRef = useRef<VoicePhase>("listening");
   useEffect(() => { voicePhaseRef.current = voicePhase; }, [voicePhase]);
+  // Bhashini lane (Day 10): armed at runtime once /api/voice/health says the
+  // server holds integrator keys. Browser falls back to Web Speech per call.
+  const bhashiniRef = useRef(false);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/voice/health")
+      .then((r) => r.json())
+      .then((h) => {
+        // Server lane = Bhashini when its keys exist, Groq-Whisper otherwise;
+        // the provider ladder is resolved server-side per call.
+        if (alive && h && (h.server === true || h.bhashini === true)) {
+          bhashiniRef.current = true;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   // Warm the TTS voice list once on mount: Chrome Android speaks nothing at
   // all until voices have loaded (the classic "first reply is silent" bug).
   useEffect(() => {
@@ -260,7 +258,7 @@ export default function KioskPage() {
         // Hands-free loop: read the reply aloud, then re-open the mic. Voice
         // mode routes via speakThenListen (watchdog re-opens the mic even if
         // TTS hangs); chat hands-free keeps the plain chain.
-                if (inVoice) {
+        if (inVoice) {
           setVoicePhase("speaking");
           speakThenListen(reply.text, chosen, data.done === true);
         } else {
@@ -303,114 +301,195 @@ export default function KioskPage() {
 
   // Voice: recognised text posts as a normal user turn - the engine,
   // never-re-ask rule and review fix all behave exactly as with typing.
-  // Days 9b/9c hardening retained (silent/dead sessions retry with backoff;
-  // TTS.onend can be lost on Android, so a watchdog forces the mic open).
+  // Days 9b/9c hardening:
+  // - Chrome sometimes emits a FINAL result with an empty transcript, or a
+  //   dead session after TTS; those are retried with backoff, never fatal.
+  // - Utterance.onend can be lost (Android bug); speakThenListen arms a
+  //   watchdog that re-opens the mic if speech never finishes.
   const RECONNECT_MS = [400, 900, 1600];
 
-  // ---------- Day 9d: voice barge-in guard (speak over the bot) ----------
+  // ---------- Bhashini lane: server-side GoI voice, Web Speech fallback ----------
 
-  function stopBargeGuard() {
-    guardTokenRef.current += 1;
-    const g = guardRef.current;
-    guardRef.current = null;
+  async function bhashiniListen() {
+    if (busyRef.current || listeningRef.current || langRef.current === null) return;
+    const chosen = langRef.current;
     try {
-      g?.abort?.();
-    } catch {
-      // no-op
-    }
-  }
-
-  // Runs only while voicePhase === "speaking". Chrome ends recognition
-  // sessions on its own timer, so a healthy session self-restarts (200ms)
-  // until the TTS finishes and the normal chain takes over the mic.
-  function startBargeGuard(botText: string, chosen: Lang) {
-    stopBargeGuard();
-    if (screenRef.current !== "voice" || !voiceOnRef.current) return;
-    if (voicePhaseRef.current !== "speaking") return; // Day 9e: never arm late
-    const w = window as unknown as {
-      SpeechRecognition?: new () => SpeechRecognitionLike;
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    };
-    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!Ctor) return; // barge-in is best-effort; tapping the orb still works
-    try {
-      const r = new Ctor();
-      guardRef.current = r;
-      const token = ++guardTokenRef.current;
-      r.lang = SPEECH_LANG[chosen];
-      r.interimResults = true;
-      r.continuous = true;
-      r.maxAlternatives = 1;
-      let heard = "";
-      let stableTimer: number | null = null;
-      const maybeInterrupt = () => {
-        if (token !== guardTokenRef.current) return;
-        if (!voiceOnRef.current || screenRef.current !== "voice") return;
-        if (voicePhaseRef.current !== "speaking") return;
-        const t = heard.trim();
-        // Stricter evidence than Day 9d: 2+ content words the BOT did NOT
-        // say - a leaked syllable of our own TTS gets through neither the
-        // echo filter nor this gate, so the question is never cut by echo.
-        if (
-          t.length >= 4 &&
-          !looksLikeEcho(t, botText) &&
-          novelTokenCount(t, botText) >= 2
-        ) {
-          speechTokenRef.current += 1; // retire the TTS watchdog too
-          try {
-            window.speechSynthesis?.cancel();
-          } catch {
-            // no-op
-          }
-          if (screenRef.current === "voice") setVoicePhase("listening");
-          window.setTimeout(() => startListening(), 300);
-        }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const chunks: BlobPart[] = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
       };
-      r.onresult = (ev) => {
-        let s = "";
+      recorderRef.current = rec;
+      rec.start(200);
+      setListening(true);
+      if (screenRef.current === "voice") setVoicePhase("listening");
+      // Simple RMS VAD: waits for speech, stops 1.4s after it ends (max 14s).
+      const buf = new Uint8Array(analyser.fftSize);
+      let voiced = false;
+      let silenceMs = 0;
+      let elapsed = 0;
+      const STEP = 120;
+      while (elapsed < 14000 && voiceOnRef.current) {
+        await new Promise((r) => setTimeout(r, STEP));
+        elapsed += STEP;
+        if (recorderRef.current !== rec) break; // aborted (exitVoice)
+        let sum = 0;
+        analyser.getByteTimeDomainData(buf);
+        for (let i = 0; i < buf.length; i++) {
+          const d = buf[i] - 128;
+          sum += d * d;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        if (rms > 7) {
+          voiced = true;
+          silenceMs = 0;
+        } else if (voiced) {
+          silenceMs += STEP;
+          if (silenceMs >= 1400) break;
+        }
+      }
+      await new Promise<void>((resolve) => {
+        const prev = rec.onstop;
+        rec.onstop = (ev) => {
+          if (prev) prev.call(rec, ev);
+          resolve();
+        };
         try {
-          const res = ev.results;
-          for (let i = 0; i < res.length; i++) s += res[i][0].transcript;
+          rec.stop();
         } catch {
-          // no-op
+          resolve();
         }
-        if (!s.trim() || s === heard) return;
-        heard = s;
-        if (stableTimer !== null) window.clearTimeout(stableTimer);
-        stableTimer = window.setTimeout(maybeInterrupt, 650); // steady = real
-      };
-      r.onend = () => {
-        if (token !== guardTokenRef.current) return;
-        if (guardRef.current !== r) return;
-        if (!voiceOnRef.current || screenRef.current !== "voice") return;
-        if (voicePhaseRef.current !== "speaking") return;
-        window.setTimeout(() => startBargeGuard(botText, chosen), 200);
-      };
-      r.onerror = () => {
-        if (stableTimer !== null) window.clearTimeout(stableTimer);
-      };
+      });
+      stream.getTracks().forEach((t) => t.stop());
       try {
-        r.start();
+        await ctx.close();
       } catch {
         // no-op
       }
+      recorderRef.current = null;
+      setListening(false);
+      if (!voiced || chunks.length === 0 || screenRef.current !== "voice") {
+        // no speech captured: quietly re-open the mic while in voice mode
+        if (screenRef.current === "voice" && voiceOnRef.current && emptyTriesRef.current < 4) {
+          emptyTriesRef.current += 1;
+          window.setTimeout(() => startListening(), 500);
+        }
+        return;
+      }
+      const wavB64 = await blobToWavB64(new Blob(chunks, { type: rec.mimeType }));
+      const res = await fetch("/api/voice/asr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: chosen, audioB64: wavB64 }),
+      });
+      const out = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        text?: string;
+      } | null;
+      const text = out && out.ok && typeof out.text === "string" ? out.text.trim() : "";
+      if (text && langRef.current) {
+        emptyTriesRef.current = 0;
+        const next: Bubble[] = [...historyRef.current, { role: "user", text }];
+        setHistory(next);
+        void askServer(next, langRef.current);
+      } else if (screenRef.current === "voice" && voiceOnRef.current) {
+        // ASR miss: re-open the mic so the user can simply say it again.
+        emptyTriesRef.current = 0;
+        window.setTimeout(() => startListening(), 500);
+      }
     } catch {
-      // barge-in unavailable on this browser: tapping the orb still interrupts
+      setListening(false);
+      recorderRef.current = null;
+      if (screenRef.current === "voice" && voiceOnRef.current && emptyTriesRef.current < 4) {
+        emptyTriesRef.current += 1;
+        window.setTimeout(() => startListening(), 600);
+      }
     }
   }
 
-  // ---------- Day 9d: fast capture listening (0.9s endpointing) ----------
+  async function bhashiniSpeakThenListen(text: string, chosen: Lang, afterDone = false) {
+    const token = ++speechTokenRef.current;
+    // Watchdog: if nothing plays/ends within the estimate, force the mic.
+    const est = Math.min(15000, 2500 + text.length * 90);
+    window.setTimeout(() => {
+      if (
+        voiceOnRef.current &&
+        screenRef.current === "voice" &&
+        speechTokenRef.current === token &&
+        voicePhaseRef.current === "speaking"
+      ) {
+        try {
+          audioElRef.current?.pause();
+        } catch {
+          // no-op
+        }
+        audioElRef.current = null;
+        if (afterDone) {
+          window.setTimeout(() => setScreen("review"), 700);
+        } else {
+          window.setTimeout(() => startListening(), 400);
+        }
+      }
+    }, est);
+    try {
+      const res = await fetch("/api/voice/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: chosen, text }),
+      });
+      const out = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        audioB64?: string;
+      } | null;
+      if (out && out.ok && typeof out.audioB64 === "string") {
+        if (speechTokenRef.current !== token || screenRef.current !== "voice") return;
+        const fire = () => {
+          audioElRef.current = null;
+          if (voiceOnRef.current && screenRef.current === "voice") {
+            if (afterDone) {
+              window.setTimeout(() => setScreen("review"), 500);
+            } else {
+              window.setTimeout(() => startListening(), 450);
+            }
+          }
+        };
+        const audio = new Audio("data:audio/wav;base64," + out.audioB64);
+        audioElRef.current = audio;
+        audio.onended = fire;
+        audio.onerror = fire;
+        await audio.play().catch(() => fire());
+        return;
+      }
+      throw new Error("tts-lane-failed");
+    } catch {
+      // Per-call fallback to the browser voice; the chain itself is protected
+      // by speakReply's onerror/utterance watchdogs.
+      speakReply(text, chosen, () => {
+        if (!voiceOnRef.current || screenRef.current !== "voice") return;
+        if (afterDone) {
+          window.setTimeout(() => setScreen("review"), 600);
+          return;
+        }
+        window.setTimeout(() => startListening(), 650);
+      });
+    }
+  }
 
-    // afterDone: this is the interview CLOSING line - speak it, then land on
+  // afterDone: this is the interview CLOSING line - speak it, then land on
   // the review screen instead of reopening the mic.
   function speakThenListen(text: string, chosen: Lang, afterDone = false) {
+    if (bhashiniRef.current) {
+      void bhashiniSpeakThenListen(text, chosen, afterDone);
+      return;
+    }
     const token = ++speechTokenRef.current;
     const est = Math.min(12000, 500 + text.length * 75); // rough speak duration
-    // Arm the barge-in guard slightly AFTER speech starts (Day 9e): the
-    // first playback burst + session warm-up is the false-interrupt window.
-    if (screenRef.current === "voice") {
-      window.setTimeout(() => startBargeGuard(text, chosen), 800);
-    }
     window.setTimeout(() => {
       if (
         voiceOnRef.current &&
@@ -424,7 +503,6 @@ export default function KioskPage() {
         } catch {
           // no-op
         }
-                stopBargeGuard();
         if (afterDone) {
           window.setTimeout(() => setScreen("review"), 900);
         } else {
@@ -434,9 +512,8 @@ export default function KioskPage() {
         }
       }
     }, est + 1500);
-            speakReply(text, chosen, () => {
+    speakReply(text, chosen, () => {
       if (!voiceOnRef.current || screenRef.current !== "voice") return;
-      stopBargeGuard();
       if (afterDone) {
         window.setTimeout(() => setScreen("review"), 600);
         return;
@@ -447,9 +524,12 @@ export default function KioskPage() {
   }
 
   function startListening() {
+    if (bhashiniRef.current) {
+      void bhashiniListen();
+      return;
+    }
     // Guards read refs: this closure may be old (fired by a TTS onend of an
     // earlier render), but decisions must use TODAY's state.
-    stopBargeGuard(); // exactly one mic session at a time
     if (busyRef.current || listeningRef.current || langRef.current === null) return;
     const chosen = langRef.current;
     try {
@@ -472,58 +552,24 @@ export default function KioskPage() {
       const r = new Ctor();
       recogRef.current = r;
       r.lang = SPEECH_LANG[chosen];
-      r.interimResults = true; // Day 9d: stream guesses so WE decide the endpoint
-      r.continuous = false;
+      r.interimResults = false;
       r.maxAlternatives = 1;
       let gotResult = false;
-      let transcript = "";
-      let quietTimer: number | null = null;
-      const clearQuiet = () => {
-        if (quietTimer !== null) window.clearTimeout(quietTimer);
-        quietTimer = null;
-      };
-      const submit = () => {
-        const t = transcript.trim();
-        if (!t || gotResult) return;
+      r.onresult = (ev) => {
+        const t = ev.results?.[0]?.[0]?.transcript ?? "";
+        // Empty finals happen (Chrome); treat them like a no-result session.
+        if (!t.trim()) return;
         gotResult = true;
         emptyTriesRef.current = 0;
-        try {
-          r.abort?.();
-        } catch {
-          // no-op
-        }
         // Build the turn from historyRef (current), never closure history.
         if (langRef.current) {
           const next: Bubble[] = [
             ...historyRef.current,
-            { role: "user", text: t },
+            { role: "user", text: t.trim() },
           ];
           setHistory(next);
           void askServer(next, langRef.current);
         }
-      };
-      r.onresult = (ev) => {
-        // Web Speech endpointing is conservative (Chrome can hold a silent
-        // session open for 10s+). We take interim results; the moment the
-        // guess stops changing for 0.9s, the answer is complete -> submit.
-        let s = "";
-        try {
-          const res = ev.results;
-          for (let i = 0; i < res.length; i++) s += res[i][0].transcript;
-        } catch {
-          return;
-        }
-        if (!s.trim() || s === transcript) return;
-        transcript = s;
-        clearQuiet();
-        quietTimer = window.setTimeout(() => {
-          try {
-            r.stop?.();
-          } catch {
-            // no-op
-          }
-          submit();
-        }, 900);
       };
       r.onstart = () => {
         setListening(true);
@@ -531,11 +577,6 @@ export default function KioskPage() {
       };
       r.onend = () => {
         setListening(false);
-        clearQuiet();
-        if (!gotResult && transcript.trim()) {
-          submit(); // Chrome ended with a good guess in hand: use it
-          return;
-        }
         // Voice-mode resilience: silent/dead sessions retry with backoff.
         if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 4) {
           const gap = RECONNECT_MS[Math.min(emptyTriesRef.current, RECONNECT_MS.length - 1)];
@@ -543,31 +584,7 @@ export default function KioskPage() {
           window.setTimeout(() => startListening(), gap);
         }
       };
-      r.onerror = (ev) => {
-        setListening(false);
-        clearQuiet();
-        if (!gotResult && transcript.trim()) {
-          submit();
-          return;
-        }
-        // Day 9e: error right after TTS ("aborted"/channel handoff) is the
-        // classic Android dead session - retry with backoff, never strand.
-        if (screenRef.current === "voice" && !gotResult && emptyTriesRef.current < 4) {
-          const gap =
-            RECONNECT_MS[Math.min(emptyTriesRef.current, RECONNECT_MS.length - 1)] + 300;
-          emptyTriesRef.current += 1;
-          window.setTimeout(() => startListening(), gap);
-        }
-      };
-      // 15s hard cap: never let a hung session eat the demo; whatever was
-      // heard so far is submitted by onend/submit.
-      window.setTimeout(() => {
-        try {
-          r.stop?.();
-        } catch {
-          // no-op
-        }
-      }, 15000);
+      r.onerror = () => setListening(false);
       r.start();
     } catch {
       setVoiceNote(true);
@@ -615,7 +632,18 @@ export default function KioskPage() {
     } catch {
       // no-op
     }
-    stopBargeGuard();
+    try {
+      recorderRef.current?.stop();
+      recorderRef.current = null;
+    } catch {
+      // no-op
+    }
+    try {
+      audioElRef.current?.pause();
+      audioElRef.current = null;
+    } catch {
+      // no-op
+    }
     try {
       window.speechSynthesis?.cancel();
     } catch {
@@ -647,7 +675,6 @@ export default function KioskPage() {
   }
 
   function startOver() {
-    stopBargeGuard();
     setLang(null);
     setHistory([]);
     setProfile(null);
@@ -740,7 +767,11 @@ export default function KioskPage() {
 
       <main className="container">
         {screen === "picker" && (
-          <section className="card" aria-label={getDict("en").picker.label}>
+          <section className="card picker-card" aria-label={getDict("en").picker.label}>
+            <div className="picker-hero" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/saathi.jpg" alt="" className="picker-saathi" />
+            </div>
             <h1 className="page-title">
               {LANGS.map((l) => l.nativeName).join(" · ")}
             </h1>
@@ -777,13 +808,13 @@ export default function KioskPage() {
                   }`}
                 >
                   {m.role === "assistant" && (
-                                        <span className="bubble-avatar" aria-hidden="true">
+                    <span className="bubble-avatar" aria-hidden="true">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src="/saathi.jpg" alt="" className="avatar-img" />
                     </span>
                   )}
                   <span className="bubble-text">{m.text}</span>
-                                    {m.role === "assistant" && m.engine && (
+                  {m.role === "assistant" && m.engine && (
                     <span className="engine-badge">
                       {m.engine.startsWith("ai-") ? m.engine : "RojiSetu AI"}
                     </span>
@@ -946,6 +977,7 @@ export default function KioskPage() {
                 // hard reset: abort the current session and re-open the mic
                 try {
                   recogRef.current?.abort?.();
+                  recorderRef.current?.stop();
                 } catch {
                   // no-op
                 }
@@ -953,10 +985,10 @@ export default function KioskPage() {
                 emptyTriesRef.current = 0;
                 window.setTimeout(() => startListening(), 250);
               } else if (voicePhase === "speaking") {
-                // barge-in (tap): stop TTS; the chain re-opens the mic
-                stopBargeGuard();
+                // barge-in: stop any voice lane; the chain re-opens the mic
                 try {
                   window.speechSynthesis?.cancel();
+                  audioElRef.current?.pause();
                 } catch {
                   // no-op
                 }
@@ -976,14 +1008,7 @@ export default function KioskPage() {
             </span>
           </button>
 
-          {lastAssistant && (
-            <div
-              className="voice-subtitle"
-              style={{ maxHeight: "32vh", overflowY: "auto" }}
-            >
-              {lastAssistant}
-            </div>
-          )}
+          {lastAssistant && <div className="voice-subtitle">{lastAssistant}</div>}
 
           <button className="btn btn-ghost voice-exit" onClick={exitVoice}>
             ✕ {d.kiosk.voice.exitVoice}

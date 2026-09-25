@@ -2,12 +2,13 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { getDict } from "@/lib/i18n";
 
-// Day 15 landing: a real "skill mission" face for RojiSetu - tricolor ribbon,
-// ministry strip, illustrated hero ( beneficiaries crossing the setu from
-// village to livelihood ), stats, how-it-works, trades from the catalogue,
-// and the two entries (voice kiosk for beneficiaries, dashboard for
-// officials). The landing is English-led by design (Kiosk carries all 7
-// languages); a Kannada hero line keeps the home flavour.
+// Day 15/16 landing: a real "skill mission" face for RojiSetu - tricolor
+// ribbon, ministry strip, illustrated hero (beneficiaries crossing the setu
+// from village to livelihood), stats, how-it-works, trades catalogue, and
+// the two entries (voice kiosk for beneficiaries, dashboard for officials).
+// This assistant is for ALL of India: the kiosk runs in 7 Indian languages
+// across North, South, East and West, with the lane open to every language
+// of Bharat.
 export default function HomePage() {
   const d = getDict("en");
   return (
@@ -54,19 +55,22 @@ export default function HomePage() {
         <section className="hero container">
           <div className="hero-copy">
             <span className="hero-eyebrow">
-              🎙️ Voice-first livelihood assistant
+              🇮🇳 For all of India · Voice-first livelihood assistant
             </span>
             <h1 className="hero-title">
-              ಮಾತನಾಡಿ — ದಾರಿ ನಾವು ಹುಡುಕುತ್ತೇವೆ.
+              Speak in your language. We find your way to a livelihood.
               <span className="hero-title-en">
-                Speak in your language. We find your way to a livelihood.
+                ಮಾತನಾಡಿ · बोलिए · কথা বলুন · பேசுங்கள் · మాట్లాడండಿ · बोला —
+                one assistant, every Indian.
               </span>
             </h1>
             <p className="hero-sub">
               RojiSetu listens like a friend, asks seven short questions, and
               suggests NSQF-aligned training and livelihood options under
               PM-AJAY — hopeful guidance, honest outcomes, no literacy
-              required.
+              required. Built for every corner of Bharat, from Kashmir to
+              Kanyakumari: seven languages today, every major Indian language
+              tomorrow.
             </p>
             <div className="hero-cta">
               <Link href="/kiosk" className="btn-hero btn-hero-primary">
@@ -81,6 +85,15 @@ export default function HomePage() {
               <span className="chip">7 languages</span>
               <span className="chip">NSQF-aligned</span>
               <span className="chip">Works on a simple phone</span>
+            </div>
+            <div className="lang-roll" aria-label="languages supported">
+              <span>ಕನ್ನಡ</span>
+              <span>हिन्दी</span>
+              <span>मराठी</span>
+              <span>বাংলা</span>
+              <span>தமிழ்</span>
+              <span>తెలుగు</span>
+              <span>English</span>
             </div>
           </div>
 
@@ -129,7 +142,7 @@ export default function HomePage() {
           <h2 className="section-title">How RojiSetu works</h2>
           <p className="section-sub">
             Built for a panchayat kiosk, a shared family phone, or a camp
-            tablet — the beneficiary just talks.
+            tablet — in any state of India, the beneficiary just talks.
           </p>
           <div className="steps">
             <div className="step-card">

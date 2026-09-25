@@ -17,10 +17,10 @@ type Props = {
 // pipeline per row; demo rows have none and stay read-only.
 type Row = DemoProfile & { beneficiaryId?: string };
 
-// Official dashboard for the district corporation. Day 3: real beneficiary
-// rows. Day 5: top-recommendation column from stored picks. Day 6: latest
-// outcome event per row plus a status picker; stat cards map honestly
-// (see outcomes.ts for the counting rules). Light payload only.
+// Official dashboard for the district corporation. Day 3: reads real
+// beneficiary rows when the database is attached; falls back to demo rows
+// (DEMO_MODE) or the honest empty state otherwise. Light payload: the list
+// carries no transcripts, matching the MediKiosk list-API pattern rule.
 export default async function DashboardPage({ searchParams }: Props) {
   const lang = toLang(searchParams.lang);
   const d = getDict(lang);
@@ -43,7 +43,9 @@ export default async function DashboardPage({ searchParams }: Props) {
         .limit(20);
       dbLive = true;
 
-      // Top recommendation per beneficiary = the rank-1 stored pick.
+      // Day 5: top recommendation per beneficiary = the rank-1 row the
+      // engine stored. Recommendation-less interviews honestly stay "-".
+      // Inner try: a join failure must never hide the beneficiary list.
       const topRec: Record<string, string> = {};
       try {
         if (rows.length > 0) {
@@ -58,23 +60,22 @@ export default async function DashboardPage({ searchParams }: Props) {
                 eq(schema.recommendations.rank, 1),
                 inArray(
                   schema.recommendations.beneficiaryId,
-                  rows.map((b) => b.id)
+                  rows.map((r) => r.id)
                 )
               )
             );
-          for (const r of recs) {
-            if (!(r.beneficiaryId in topRec)) topRec[r.beneficiaryId] = r.roleTitle;
-          }
+          for (const r of recs) topRec[r.beneficiaryId] = r.roleTitle;
         }
       } catch {
-        // keep topRec empty; the column honestly shows "-"
+        // recommendations column stays "-"
       }
 
-      // Day 6: latest outcome event per beneficiary (event log, newest wins).
+      // Day 6: latest outcome status per beneficiary (joined verbally, not
+      // in SQL, so a broken outcomes table never breaks the roster).
       const latestStatus: Record<string, string> = {};
       try {
         if (rows.length > 0) {
-          const evs = await db
+          const events = await db
             .select({
               beneficiaryId: schema.outcomes.beneficiaryId,
               status: schema.outcomes.status,
@@ -84,11 +85,12 @@ export default async function DashboardPage({ searchParams }: Props) {
             .where(
               inArray(
                 schema.outcomes.beneficiaryId,
-                rows.map((b) => b.id)
+                rows.map((r) => r.id)
               )
             )
             .orderBy(desc(schema.outcomes.updatedAt));
-          for (const e of evs) {
+          for (const e of events) {
+            // first occurrence in desc order = latest
             if (!(e.beneficiaryId in latestStatus))
               latestStatus[e.beneficiaryId] = e.status;
           }
@@ -126,13 +128,38 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   return (
     <>
-      <header className="app-header">
+      {/* tricolor ribbon + ministry strip: same chrome as the landing */}
+      <div className="tricolor" aria-hidden="true">
+        <span className="tricolor-saffron" />
+        <span className="tricolor-white" />
+        <span className="tricolor-green" />
+      </div>
+      <div className="govt-strip">
+        <div className="container govt-strip-in">
+          <span>Ministry of Social Justice &amp; Empowerment</span>
+          <span className="govt-strip-dot" aria-hidden="true">
+            •
+          </span>
+          <span>PM-AJAY — Grant-in-Aid</span>
+          <span className="govt-strip-right">District dashboard</span>
+        </div>
+      </div>
+
+      <header className="app-header home-header">
         <div className="container">
-          <Logo size={40} />
+          <Logo size={44} />
           <div>
             <div className="brand-name">{d.appName}</div>
             <div className="brand-sub">{d.dashboard.title}</div>
           </div>
+          <nav className="home-nav">
+            <Link href="/" className="home-nav-link">
+              Home
+            </Link>
+            <Link href="/kiosk" className="home-nav-link">
+              Voice Kiosk
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -149,10 +176,20 @@ export default async function DashboardPage({ searchParams }: Props) {
           ))}
         </nav>
 
-        <h1 className="page-title">{d.dashboard.title}</h1>
-        <p className="page-sub">{d.dashboard.subtitle}</p>
-
-        {demoBanner && <div className="badge-demo">{d.dashboard.demoBanner}</div>}
+        {/* mission banner: the district office at work */}
+        <section className="dash-hero">
+          <div className="dash-hero-copy">
+            <h1 className="page-title">{d.dashboard.title}</h1>
+            <p className="page-sub">{d.dashboard.subtitle}</p>
+            {demoBanner && <div className="badge-demo">{d.dashboard.demoBanner}</div>}
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="dash-hero-img"
+            src="/dashboard.jpg"
+            alt="District official reviewing livelihood pipeline with trained beneficiaries"
+          />
+        </section>
 
         <div className="stat-grid">
           <div className="stat">
