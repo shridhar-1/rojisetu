@@ -49,10 +49,18 @@ const SYSTEM_PROMPT = (langName: string) =>
   `meaning; ask only that one question; no options, no lists, no extra ` +
   `sentences, no translator notes. Output only the question text.`;
 
+// A completion that ran out of tokens stops mid-sentence with NO closing
+// punctuation. Indic scripts tokenise 3-4x denser than English, so the old
+// English-sized caps would silently truncate Kannada/Tamil/Telugu replies.
+// Any candidate that lacks sentence-final punctuation is treated as
+// truncated and falls to the next lane (or the deterministic floor).
+const SENTENCE_END = /[.!?।？]["'”’)\]]?$/;
+
 function looksSane(text: string): boolean {
   const t = text.trim();
   if (t.length < 8 || t.length > 320) return false;
   if (t.includes("\n")) return false; // one spoken line only
+  if (!SENTENCE_END.test(t)) return false; // truncated mid-sentence
   return true;
 }
 
@@ -86,7 +94,7 @@ async function laneGroq(task: LaneTask, lang: Lang): Promise<{ text: string | nu
         body: JSON.stringify({
           model,
           temperature: 0.3,
-          max_tokens: task.maxTokens ?? 140,
+          max_tokens: task.maxTokens ?? 220,
           messages: [
             { role: "system", content: taskSystem(task, lang) },
             { role: "user", content: task.user },
@@ -133,7 +141,7 @@ async function laneGemini(task: LaneTask, lang: Lang): Promise<{ text: string | 
             ],
             generationConfig: {
               temperature: 0.3,
-              maxOutputTokens: task.maxTokens ?? 240,
+              maxOutputTokens: task.maxTokens ?? 320,
             },
           }),
           signal: AbortSignal.timeout(7000),
@@ -272,7 +280,7 @@ export async function smallTalkWithAI(opts: {
       user:
         `User's message: "${opts.userText}"\n` +
         `Interview question to ask right after: "${opts.question}"`,
-      maxTokens: 120,
+      maxTokens: 220, // Indic scripts need 2-3x English token budget
     },
     lang: opts.lang,
   });
@@ -321,7 +329,7 @@ export async function ackAndAskWithAI(opts: {
       user:
         `Beneficiary's answer: "${opts.userText}"\n` +
         `Next interview question: "${opts.base}"`,
-      maxTokens: 150,
+      maxTokens: 300, // warm ack + question, Indic token density
     },
     lang: opts.lang,
   });
@@ -351,10 +359,10 @@ export async function answerUserQuestionWithAI(opts: {
       user:
         `The beneficiary asks: "${opts.userQuestion}"\n` +
         `Pending interview question to ask afterwards: "${opts.pending}"`,
-      maxTokens: 220,
+           maxTokens: 420, // 2-3 sentences in any of the 7 scripts, no truncation
       validate: (t) => {
         const x = t.trim();
-        return x.length >= 12 && x.length <= 380;
+        return x.length >= 12 && x.length <= 380 && SENTENCE_END.test(x);
       },
     },
     lang: opts.lang,
