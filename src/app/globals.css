@@ -1458,3 +1458,12 @@ body { background: linear-gradient(180deg, #f0fdf4 0%, #fefce7 55%, #fdf2f8 100%
 .page-title {
   position: relative;
 }
+.picker-mini-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #f59e0b;
+  box-shadow: 0 8px 20px -6px rgba(5, 46, 22, 0.5);
+  margin-bottom: 10px;
+}

@@ -767,7 +767,9 @@ export default function KioskPage() {
 
       <main className="container">
                 {screen === "picker" && (
-          <section className="card" aria-label={getDict("en").picker.label}>
+                    <section className="card" aria-label={getDict("en").picker.label}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/saathi.jpg" alt="Saathi" className="picker-mini-avatar" />
             <h1 className="page-title">
               {LANGS.map((l) => l.nativeName).join(" · ")}
             </h1>
