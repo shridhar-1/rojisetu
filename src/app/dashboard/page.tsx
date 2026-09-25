@@ -186,7 +186,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className="dash-hero-img"
-            src="/dashboard.jpg"
+            src="/dashboard.png"
             alt="District official reviewing livelihood pipeline with trained beneficiaries"
           />
         </section>
