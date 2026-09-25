@@ -1467,3 +1467,37 @@ body { background: linear-gradient(180deg, #f0fdf4 0%, #fefce7 55%, #fdf2f8 100%
   box-shadow: 0 8px 20px -6px rgba(5, 46, 22, 0.5);
   margin-bottom: 10px;
 }
+/* ============================================================
+   Day 16b: picker = full-screen mission poster. The hero art is
+   the whole background; content floats centered. No empty bands.
+   ============================================================ */
+.card:has(.lang-grid) {
+  min-height: calc(100vh - 150px);
+  min-height: calc(100dvh - 150px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 44px 28px;
+  background:
+    linear-gradient(160deg, rgba(5, 46, 22, 0.86) 0%, rgba(20, 83, 45, 0.8) 55%, rgba(22, 101, 52, 0.75) 100%),
+    url("/hero.jpg") center 32% / cover no-repeat,
+    linear-gradient(135deg, #14532d, #166534);
+  background-attachment: scroll, scroll, scroll;
+  border-radius: 24px;
+}
+.card:has(.lang-grid) .page-title {
+  text-align: center;
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+}
+.card:has(.lang-grid) .page-sub {
+  text-align: center;
+  font-size: 1.05rem;
+}
+.card:has(.lang-grid) .lang-grid {
+  margin-top: 26px;
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
