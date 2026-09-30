@@ -25,6 +25,9 @@ export const en = {
       mobility: "Travel and physical constraints",
       workPreference: "Your own work or a job?",
       district: "Your district and the work available near you",
+      name: "Your name",
+      whatsapp: "WhatsApp number",
+      email: "Email",
     },
     comingSoon:
       "The voice conversation engine is being connected next. Today this screen shows the conversation plan in your language.",
@@ -78,6 +81,7 @@ export const en = {
     colEducation: "Education",
     colRecommendation: "Top recommendation",
     colStatus: "Status",
+    colConnect: "Connect",
     demoBanner:
       "Demo data is ON. Set DATABASE_URL and run drizzle-kit push to store real profiles.",
     empty: "No profiles yet. They will appear here after beneficiary interviews.",

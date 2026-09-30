@@ -20,7 +20,10 @@ export type Topic =
   | "skillsInterests"
   | "mobility"
   | "workPreference"
-  | "district";
+  | "district"
+  | "name"
+  | "whatsapp"
+  | "email";
 
 export const TOPIC_ORDER: Topic[] = [
   "education",
@@ -30,6 +33,12 @@ export const TOPIC_ORDER: Topic[] = [
   "mobility",
   "workPreference",
   "district",
+  // Day 18 "connect": three optional contact topics, asked last. Each is
+  // skippable ("skip" banks already cover every language) so a beneficiary
+  // without a phone or email is never trapped before the done screen.
+  "name",
+  "whatsapp",
+  "email",
 ];
 
 export type TopicStatus = "unknown" | "known" | "refused";
@@ -117,7 +126,7 @@ const TOPIC_TERMS: Record<Topic, string[]> = {
     "near home", "physical", "disability", "wheelchair",
     "दूर जा", "यात्रा", "घर के पास", "घर रहना", "शारीरिक", "दिव्यांग",
     "দূরে যেতে", "যাতায়াত", "বাড়ির কাছে", "শারীরিক", "প্রতিবন্ধী",
-    "ದೂর ಹೋಗ", "ಪ್ರಯಾಣ", "ಮನೆ ಹತ್ತಿರ", "ದೈಹিক",
+    "ದೂರ ಹೋಗ", "ಪ್ರಯಾಣ", "ಮನೆ ಹತ್ತಿರ", "ದೈಹಿಕ",
     "தூரம் செல்ல", "பயணம்", "வீட்டுக்கு அருகில்", "உடல்", "மாற்றுத்திறனாளி",
     "దూరం వెళ్ల", "ప్రయాణం", "ఇంటి దగ్గర", "శారీరక", "వికలాంగ",
     "दूर जाऊ", "प्रवास", "घराजवळ", "शारीरिक", "दिव्यांग",
@@ -136,10 +145,28 @@ const TOPIC_TERMS: Record<Topic, string[]> = {
     "district", "village", "town", "block", "state", "nearby", "available around",
     "ज़िला", "जिला", "गाँव", "शहर", "आसपास", "ब्लॉक",
     "জেলা", "গ্রাম", "শহর", "আশেপাশে", "ব্লক",
-    "ಜಿಲ್ಲೆ", "ಊರು", "ಹಳ್ಳಿ", "ಹತ್ತির", "ಬ್ಲಾಕ್",
+    "ಜಿಲ್ಲೆ", "ಊರು", "ಹಳ್ಳಿ", "ಹತ್ತಿರ", "ಬ್ಲಾಕ್",
     "மாவட்டம்", "கிராமம்", "ஊர்", "அருகில்", "வட்டம்",
     "జిల్లా", "గ్రామం", "పట్టణం", "దగ్గరలో", "మండలం",
     "जिल्हा", "गाव", "शहर", "जवळ", "तालुका",
+  ],
+  name: [
+    "name", "your name", "called", "नाम", "নাম", "ಆপনার नाम",
+    "ಹೆಸರ", "பெயர்", "உங்கள் பெயர்", "పేరు", "మీ పేరు", "तुमचे नाव", "नाव",
+  ],
+  whatsapp: [
+    "whatsapp", "whats app", "number", "mobile", "phone", "contact",
+    "व्हाट्सऐप", "वाट्सएप", "मोबाइल", "नंबर",
+    "হোয়াটসঅ্যাপ", "নম্বর", "মোবাইল",
+    "ವಾಟ್ಸಾಪ್", "ನಂಬರ", "ಮೊಬೈಲ್", "ಸಂಪರ್ಕ",
+    "வாட்ஸ்அப்", "எண்", "மொபைல்",
+    "వాట్సాప్", "నంబర్", "మొబైల్",
+    "व्हॉट्सअॅप", "क्रमांक", "मोबाईल",
+  ],
+  email: [
+    "email", "e-mail", "mail id",
+    "ईमेल", "ई-मेल", "ইমেল",
+    "ಇಮెಯಿಲ್", "இ-மெயில்", "மின்னஞ்சல்", "ఇమెయిల్", "मेल",
   ],
 };
 
@@ -173,10 +200,10 @@ const GREETINGS: Record<Lang, string[]> = {
   en: ["hi", "hello", "hey", "namaste", "good morning", "good afternoon", "good evening"],
   hi: ["नमस्ते", "नमस्कार", "हेलो", "राम राम"],
   bn: ["নমস্কার", "হ্যালো"],
-    kn: ["ನಮಸ್ತೆ", "ನಮಸ್ಕಾರ", "ಹಲೋ", "ಹೇಲೋ", "ಹೇ", "ಹಾಯ್", "ಹೇಳೋ", "ಹೇಳು"],
+  kn: ["ನಮಸ್ತೆ", "ನಮಸ್ಕಾರ", "ಹಲೋ"],
   ta: ["வணக்கம்", "ஹலோ"],
   te: ["నమస్తే", "నమస్కారం", "హలో"],
-   mr: ["नमस्ते", "नमस्कार", "हॅलो", "हॅय", "अहो", "हेलो"],
+  mr: ["नमस्ते", "नमस्कार", "हॅलो"],
 };
 
 const ACK_WORDS: Record<Lang, string[]> = {
@@ -232,6 +259,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "Can you travel far for work or training, or do you need to stay near home?",
     workPreference: "Would you rather run your own work, or take a job with monthly wages?",
     district: "Which district do you live in, and what work is available around you?",
+    name: "Almost done now. May I know your name?",
+    whatsapp: "Please say or type your 10-digit WhatsApp number, so the team can reach you about training. If you would rather not, just say skip.",
+    email: "Do you have an email address? If not, simply say skip.",
   },
   hi: {
     education: "शुरू करते हैं। आपने स्कूल में कौन सी कक्षा तक पढ़ाई की है?",
@@ -241,6 +271,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "क्या आप काम या प्रशिक्षण के लिए दूर जा सकते हैं, या घर के पास ही रहना चाहते हैं?",
     workPreference: "आप अपना काम करना पसंद करेंगे या महीने की तनख्वाह वाली नौकरी?",
     district: "आप किस ज़िले में रहते हैं, और आसपास क्या काम मिलता है?",
+    name: "बस अंतिम बातें रह गई हैं। आपका नाम क्या है?",
+    whatsapp: "कृपया अपना 10 अंकों का व्हाट्सऐप नंबर बताएं या लिखें, ताकि टीम आपसे प्रशिक्षण के लिए संपर्क कर सके। नहीं बताना हो तो बस छोड़ो कह दीजिए।",
+    email: "क्या आपके पास ईमेल है? नहीं है तो बस छोड़ो कह दीजिए।",
   },
   bn: {
     education: "চলুন শুরু করি। আপনি স্কুলে কোন ক্লাস পর্যন্ত পড়েছেন?",
@@ -250,6 +283,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "কাজ বা প্রশিক্ষণের জন্য আপনি কি দূরে যেতে পারবেন, নাকি বাড়ির কাছেই থাকতে চান?",
     workPreference: "আপনি কি নিজের কাজ করতে চান, নাকি মাসিক বেতনের চাকরি?",
     district: "আপনি কোন জেলায় থাকেন, আর আশেপাশে কী কাজ পাওয়া যায়?",
+    name: "প্রায় শেষ। আপনার নাম কী?",
+    whatsapp: "অনুগ্রহ করে আপনার 10 সংখ্যার হোয়াটসঅ্যাপ নম্বর বলুন বা লিখুন, যাতে দল প্রশিক্ষণের জন্য আপনার সাথে যোগাযোগ করতে পারে। না বলতে চাইলে শুধু বাদ দিন বলুন।",
+    email: "আপনার কি ইমেল আছে? না থাকলে শুধু বাদ দিন বলুন।",
   },
   kn: {
     education: "ಪ್ರಾರಂಭಿಸೋಣ. ನೀವು ಶಾಲೆಯಲ್ಲಿ ಯಾವ ತರಗತಿಯವರೆಗೆ ಓದಿದ್ದೀರಿ?",
@@ -257,8 +293,11 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     currentLivelihood: "ಮತ್ತು ಈ ದಿನಗಳಲ್ಲಿ ನೀವು ಹೇಗೆ ಹಣ ಗಳಿಸುತ್ತೀರಿ?",
     skillsInterests: "ನೀವು ಯಾವ ಕೆಲಸದಲ್ಲಿ ಪರಿಣತಿ ಹೊಂದಿದ್ದೀರಿ, ಮತ್ತು ಯಾವ ಕೆಲಸ ನಿಮ್ಮ ಇಷ್ಟ?",
     mobility: "ಕೆಲಸ ಅಥವಾ ತರಬೇತಿಗಾಗಿ ನೀವು ದೂರ ಹೋಗಬಹುದೇ, ಅಥವಾ ಮನೆ ಹತ್ತಿರವೇ ಇರಬೇಕೇ?",
-    workPreference: "ನೀವು ಸ್ವಂತ ಕೆಲಸ ಮಾಡಲು ಇಷ್ಟಪಡುತ್ತೀರಾ ಅಥವಾ ತಿಂಗಳ ಸಂಬಳದ ಉದ್ಯೋಗವೇ?",
+    workPreference: "ನೀವು ಸ್ವಂತ ಕೆಲಸ ಮಾಡಲು ಇಷ್ಟಪಡುತ್ತೀರಾ ಅಥವಾ ತಿಂಗಳ ಸಂಬಳದ ಉদ್ಯೋಗವೇ?",
     district: "ನೀವು ಯಾವ ಜಿಲ್ಲೆಯಲ್ಲಿ ವಾಸಿಸುತ್ತೀರಿ, ಮತ್ತು ಹತ್ತಿರದಲ್ಲಿ ಯಾವ ಕೆಲಸ ದೊರೆಯುತ್ತದೆ?",
+    name: "ಕೊನೆಯದಾಗಿ. ನಿಮ್ಮ ಹೆಸರೆನು?",
+    whatsapp: "ತಂಡ ತರಬೇತಿ ಬಗ್ಗೆ ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಲು, ನಿಮ್ಮ 10 ಅಂಕಿಯ ವಾಟ್ಸಾಪ್ ನಂಬರನ್ನು ಹೇಳಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ. ಬೇಡವೆಂದರೆ ಬಿಡಿ ಎನ್ನಿ.",
+    email: "ನಿಮ್ಮ ಬಳಿ ಇಮెಯಿಲ್ ಐಡಿ ಇದೆಯೇ? ಇಲ್ಲವಾದರೆ ಬಿಡಿ ಎನ್ನಿ.",
   },
   ta: {
     education: "தொடங்குவோம். நீங்கள் பள்ளியில் எந்த வகுப்பு வரை படித்தீர்கள்?",
@@ -268,6 +307,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "வேலை அல்லது பயிற்சிக்காக நீங்கள் தூரம் செல்ல முடியுமா, அல்லது வீட்டுக்கு அருகில் இருக்க வேண்டுமா?",
     workPreference: "நீங்கள் சொந்தமாக வேலை செய்ய விரும்புகிறீர்களா, அல்லது மாதச் சம்பள வேலையா?",
     district: "நீங்கள் எந்த மாவட்டத்தில் வசிக்கிறீர்கள், அருகில் என்ன வேலைகள் கிடைக்கின்றன?",
+    name: "கிட்டத்தட்ட முடிந்தது. உங்கள் பெயர் என்ன?",
+    whatsapp: "பயிற்சி குறித்து குழு உங்களைத் தொடர்பு கொள்ள, உங்கள் 10 இலக்க வாட்ஸ்அப் எண்ணைச் சொல்லுங்கள் அல்லது தட்டச்சு செய்யுங்கள். விரும்பவில்லை என்றால் விடு என்று சொல்லுங்கள்.",
+    email: "உங்களுக்கு மின்னஞ்சல் முகவரி உள்ளதா? இல்லை என்றால் விடு என்று சொல்லுங்கள்.",
   },
   te: {
     education: "ప్రారంభిద్దాం. మీరు పాఠశాలలో ఏ తరగతి వరకు చదివారు?",
@@ -277,6 +319,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "పని లేదా శిక్షణ కోసం మీరు దూరం వెళ్లగలరా, లేదా ఇంటి దగ్గరే ఉండాలా?",
     workPreference: "మీరు స్వంత పని చేయాలనుకుంటున్నారా, లేదా నెల జీతంతో ఉద్యోగమా?",
     district: "మీరు ఏ జిల్లాలో నివసిస్తున్నారు, దగ్గరలో ఏ పనులు దొరుకుతాయి?",
+    name: "దాదాపు పూర్తయింది. మీ పేరు ఏమిటి?",
+    whatsapp: "శిక్షణ గురించి బృందం మిమ్మల్ని సంప్రదించేందుకు, మీ 10 అంకెల వాట్సాప్ నంబర్ చెప్పండి లేదా టైప్ చేయండి. చెప్పకూదదనుకుంటే వదిలేయండి అనండి.",
+    email: "మీ దగ్గర ఇమెయిల్ ఉందా? లేకపోతే వదిలేయండి అనండి.",
   },
   mr: {
     education: "सुरू करूया. तुम्ही शाळेत कोणत्या वर्गापर्यंत शिकलात?",
@@ -286,6 +331,9 @@ const QUESTIONS: Record<Lang, Record<Topic, string>> = {
     mobility: "कामासाठी किंवा प्रशिक्षणासाठी दूर जाऊ शकता का, की घराजवळच राहायचे?",
     workPreference: "तुम्हाला स्वतःचे काम करायला आवडेल की महिन्याला पगाराची नोकरी?",
     district: "तुम्ही कोणत्या जिल्ह्यात राहता, आणि जवळ कोणती कामे मिळतात?",
+    name: "जवळजवळ संपले. तुमचे नाव काय आहे?",
+    whatsapp: "प्रशिक्षणासाठी टीम तुमच्याशी संपर्क करू शकेल म्हणून तुमचा 10 अंकी व्हॉट्सअॅप क्रमांक सांगा किंवा टाइप करा. नको असल्यास फक्त सोडा म्हणा.",
+    email: "तुमच्याकडे ईमेल आहे का? नसल्यास फक्त सोडा म्हणा.",
   },
 };
 
@@ -313,7 +361,7 @@ const DONE: Record<Lang, string> = {
   en: "Thank you. Your profile is ready. Please check it on the next screen.",
   hi: "धन्यवाद। आपकी प्रोफ़ाइल तैयार है। कृपया अगली स्क्रीन पर उसे जाँच लें।",
   bn: "ধন্যবাদ। আপনার প্রোফাইল তৈরি। পরের স্ক্রিনে তা দেখে নিন।",
-  kn: "ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಸಿದ್ಧವಾಗಿದೆ. ಮುಂದಿನ ಪರದೆಯಲ್ಲಿ ಪരಿಶೀಲಿಸಿ.",
+  kn: "ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಸಿದ್ಧವಾಗಿದೆ. ಮುಂದಿನ ಪರದೆಯಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.",
   ta: "நன்றி. உங்கள் சுயவிவரம் தயார். அடுத்தத் திரையில் சரிபார்க்கவும்.",
   te: "ధన్యవాదాలు. మీ ప్రొఫైల్ సిద్ధమైంది. తదుపరి స్క్రీన్‌లో తనిఖీ చేయండి.",
   mr: "धन्यवाद. तुमची प्रोफाइल तयार आहे. पुढील स्क्रीनवर ती तपासा.",
@@ -342,7 +390,7 @@ const REPAIR: Record<Lang, string> = {
 const RE_EDU_NONE =
   /(no formal|illiterate|never went|did not study|didn't study|नहीं पढ़|निरक्षर|পড়া নাই|অশিক্ষিত|নিরক্ষর|ಓದಿಲ್ಲ|ಅಕ್ಷರಸ್ಥರಲ್ಲ|படிக்கவில்லை|எழுதப் படிக்கத் தெரியாது|చదవలేదు|అక్షరాలు రావు|शिकलो नाही|अशिक्षित)/i;
 const RE_EDU_CLASS = /(\d{1,2})\s*(th|st|rd|nd|वीं|वी|ম|শ্ৰ?েণী|ನೇ|வது|వ|व्या)?/i;
-const RE_EDU_ITI = /(iti|आई टी आई|আইটিआই|আইটিআই|ಐಟಿಐ|ஐடிஐ|ఐటిఐ|आयटीआय)/i;
+const RE_EDU_ITI = /(iti|आई टी आई|আইটিआই|আইটিআই|ಐటಿಐ|ஐடிஐ|ఐటిఐ|आयटीआय)/i;
 const RE_EDU_DIPLOMA = /(diploma|डिप्लोमा|ডিপ্লোমা|ಡಿಪ್ಲೊಮಾ|டிப்ளமோ|డిప్లొమా|डिप्लोमा)/i;
 const RE_EDU_GRAD = /(graduate|graduation|degree|स्नातक|ग्रेजुएट|স্নাতক|পদবী|ಪದವೀಧರ|பட்டதாரி|గ్రాడ్యుయేట్|पदवी|पदवीधर)/i;
 
@@ -373,7 +421,7 @@ const EDU_SPELLED: [string, number][] = [
 ];
 
 const RE_MOBILITY =
-  /(\byes\b|\byep\b|\byeah\b|\bno\b|cannot|can't|wont|won't|able|unable|travel|migrate|\bfar\b|\bnear home\b|हाँ|हो\b|नहीं|नाही|जा सक|शक्य|मी करू|দূরে|হ্যাঁ|না\b|পারি|পারব|বাড়ি|ಹೌದು|ಇಲ್ಲ|ಬಹುದು|ಸಾಧ್ಯವಿಲ್ಲ|ಮನೆ|ஆம்|இல்லை|முடியும்|முடியாது|வீட்|అవును|కాదు|వీలు|గలను|గలదు|ఇంటి|సాధ్యం)/i;
+  /(\byes\b|\byep\b|\byeah\b|\bno\b|cannot|can't|wont|won't|able|unable|travel|migrate|\bfar\b|\bnear home\b|हाँ|हो\b|नहीं|नाही|जा सक|शक्य|मी करू|দূরে|হ্যাঁ|না\b|পারি|পারব|বাড়ি|ಹೌದು|ಇಲ್ಲ|ಬಹುದು|ಸಾಧ್ಯவಿಲ್ಲ|ಮನೆ|ஆம்|இல்லை|முடியும்|முடியாது|வீட்|అవును|కాదు|వీలు|గలను|గలదు|ఇంటి|సాధ్యం)/i;
 
 function eduSig(t: string): boolean {
   if (RE_EDU_NONE.test(t) || RE_EDU_ITI.test(t) || RE_EDU_DIPLOMA.test(t)) return true;
@@ -403,7 +451,7 @@ function substance(t: string): boolean {
   return (t.replace(/[^\p{L}]/gu, "").length >= 3);
 }
 
-/** True only when exactly one strict signature matched (and it's not ours). */
+/** Answers "yes i want a wage job" can match two signatures; strictly other-topic means this one's only signature. */
 function strictlyOtherSig(expected: Topic, edu: boolean, mob: boolean, pref: boolean): boolean {
   if (expected === "education") return false;
   if (expected === "mobility") return false;
@@ -417,6 +465,34 @@ const RE_ANAPHORA =
   /^(same|ditto|as before|as usual|like before|वही|उही|उस्तै|एकই|আগের|అదే|அதே|तेच|ಹಿಂದಿನ|ಮೊದಲಿನದೇ)$/;
 
 /** Is this answer the type of answer the question for `topic` expects? */
+// Day 18: contact-topic validation. Beneficiaries speak or type a phone
+// number; digits arrive in ANY Indian script (or spelled with spaces by the
+// speech recogniser), so extraction maps every Indic digit block to ASCII.
+const DIGIT_BASES = [0x30, 0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6];
+
+function digitOf(ch: string): string | null {
+  const cp = ch.codePointAt(0) ?? 0;
+  for (const base of DIGIT_BASES) {
+    if (cp >= base && cp <= base + 9) return String(cp - base);
+  }
+  return null;
+}
+
+/** 10-digit mobile from text in any script, tolerating +91 / 0 prefixes. */
+export function extractPhoneDigits(text: string): string | null {
+  let digits = "";
+  for (const ch of text) {
+    const d = digitOf(ch);
+    if (d !== null) digits += d;
+  }
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+  return digits.length === 10 ? digits : null;
+}
+
+const RE_EMAIL = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+const RE_ANY_DIGIT = /[0-9\u0966-\u096f\u09e6-\u09ef\u0a66-\u0a6f\u0ae6-\u0aef\u0b66-\u0b6f\u0be6-\u0bef\u0c66-\u0c6f\u0ce6-\u0cef]/;
+
 export function answerFits(topic: Topic, text: string): boolean {
   const t = normalize(text);
   if (t.length <= 26 && RE_ANAPHORA.test(t)) return false;
@@ -425,11 +501,14 @@ export function answerFits(topic: Topic, text: string): boolean {
   const pref = prefSig(t);
   if (topic === "education") return edu;
   if (topic === "workPreference") return pref || (substance(t) && !edu && !mob);
-   if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
+  if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
   // Day 9: the district must be a REAL Indian district (approximate match
   // over native spelling aliases; the repair cap remains the escape valve).
   if (topic === "district") return resolveDistrict(text) !== null;
-  // free-text topics: need substance and must not be purely another type's answer if (topic === "mobility") return mob || (substance(t) && !edu && !pref);
+  // Day 18 contact topics
+  if (topic === "name") return substance(t) && !RE_ANY_DIGIT.test(text);
+  if (topic === "whatsapp") return extractPhoneDigits(text) !== null;
+  if (topic === "email") return RE_EMAIL.test(text);
   // free-text topics: need substance and must not be purely another type's answer
   return substance(t) && !strictlyOtherSig(topic, edu, mob, pref);
 }
@@ -469,7 +548,7 @@ function extractCanonical(topic: Topic, raw: string): string | null {
     }
     return null;
   }
-    if (topic === "workPreference") {
+  if (topic === "workPreference") {
     if (RE_EITHER.test(t)) return "either";
     if (RE_SELF.test(t)) return "self";
     if (RE_WAGE.test(t)) return "wage";
@@ -480,7 +559,25 @@ function extractCanonical(topic: Topic, raw: string): string | null {
     const hit = resolveDistrict(raw);
     return hit ? hit.en + " (" + hit.state + ")" : null;
   }
+  if (topic === "whatsapp") {
+    const p = extractPhoneDigits(raw);
+    return p ? "wa:+91" + p : null;
+  }
+  if (topic === "email") {
+    const m = raw.match(RE_EMAIL);
+    return m ? m[0].toLowerCase() : null;
+  }
   return null;
+}
+
+// Store clean values for contact topics (digits only, lowercased mail).
+function normalizeAnswerForTopic(topic: Topic, text: string): string {
+  if (topic === "whatsapp") return extractPhoneDigits(text) ?? text;
+  if (topic === "email") {
+    const m = text.match(RE_EMAIL);
+    return m ? m[0].toLowerCase() : text;
+  }
+  return text;
 }
 
 // ---------------------------------------------------------------------------
@@ -544,7 +641,7 @@ export function markKnownFromHistory(history: ChatMessage[], lang: Lang): Profil
       // i+1: a repair turn at index i is itself a repair for this topic.
       if (repairCountBefore(history, i + 1, topic, lang) < MAX_REPAIRS) continue;
     }
-    markTopic(profile, topic, u.text);
+    markTopic(profile, topic, normalizeAnswerForTopic(topic, u.text));
   }
   profile.complete = TOPIC_ORDER.every((t) => profile.topics[t].status !== "unknown");
   return profile;

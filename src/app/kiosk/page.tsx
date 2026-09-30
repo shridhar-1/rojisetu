@@ -123,30 +123,83 @@ async function blobToWavB64(blob: Blob): Promise<string> {
   return bytesToBase64(new Uint8Array(out.buffer));
 }
 
+// Day 19: the human voice (Sarvam Bulbul) is tried first via /api/tts; the
+// browser's built-in voice remains the fallback when no key is set or the
+// network blips, so the kiosk never goes silent.
+let humanAudio: HTMLAudioElement | null = null;
+
 function speakReply(text: string, langCode: Lang, onend?: () => void) {
   const fireEnd = () => {
     if (onend) onend();
   };
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth) {
+  const browserSpeak = () => {
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) {
+        fireEnd();
+        return;
+      }
+      synth.cancel(); // never queue monotone stacking
+      synth.resume?.(); // Android: cancel() can leave the queue paused - revive it
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = SPEECH_LANG[langCode];
+      u.onend = fireEnd;
+      u.onerror = fireEnd;
+      const match = synth
+        .getVoices()
+        .find(
+          (v) =>
+            v.lang &&
+            v.lang.toLowerCase().startsWith(langCode) &&
+            /google/i.test(v.name),
+        ) ?? synth
+        .getVoices()
+        .find((v) => v.lang && v.lang.toLowerCase().startsWith(langCode));
+      if (match) u.voice = match;
+      synth.speak(u);
+    } catch {
       fireEnd();
-      return;
+      // TTS absence is a silent no-op; the text stays readable.
     }
-    synth.cancel(); // never queue monotone stacking
-    synth.resume?.(); // Android: cancel() can leave the queue paused - revive it
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = SPEECH_LANG[langCode];
-    u.onend = fireEnd;
-    u.onerror = fireEnd;
-    const match = synth
-      .getVoices()
-      .find((v) => v.lang && v.lang.toLowerCase().startsWith(langCode));
-    if (match) u.voice = match;
-    synth.speak(u);
+  };
+
+  // Human voice attempt (Day 19). 204 / any failure -> browserSpeak().
+  try {
+    window.speechSynthesis?.cancel(); // stop anything already speaking
+    if (humanAudio) {
+      humanAudio.pause();
+      humanAudio = null;
+    }
+    fetch("/api/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text, lang: langCode }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          browserSpeak();
+          return;
+        }
+        r.blob()
+          .then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            humanAudio = audio;
+            audio.onended = () => {
+              URL.revokeObjectURL(url);
+              fireEnd();
+            };
+            audio.onerror = () => {
+              URL.revokeObjectURL(url);
+              browserSpeak();
+            };
+            audio.play().catch(() => browserSpeak());
+          })
+          .catch(browserSpeak);
+      })
+      .catch(browserSpeak);
   } catch {
-    fireEnd();
-    // TTS absence is a silent no-op; the text stays readable.
+    browserSpeak();
   }
 }
 

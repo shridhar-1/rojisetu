@@ -15,7 +15,23 @@ type Props = {
 
 // Day 6: real rows carry their beneficiary id so the official can move the
 // pipeline per row; demo rows have none and stay read-only.
-type Row = DemoProfile & { beneficiaryId?: string };
+// Day 18: contact details ride in the profile JSON - no DB migration needed.
+type Row = DemoProfile & {
+  beneficiaryId?: string;
+  whatsapp?: string | null;
+  email?: string | null;
+};
+
+function contactFrom(profile: unknown, key: string): string | null {
+  if (!profile || typeof profile !== "object") return null;
+  const topics = (profile as { topics?: unknown }).topics;
+  if (!topics || typeof topics !== "object") return null;
+  const t = (topics as Record<string, { status?: string; value?: string | null }>)[key];
+  if (t && t.status === "known" && typeof t.value === "string" && t.value.trim()) {
+    return t.value.trim();
+  }
+  return null;
+}
 
 // Official dashboard for the district corporation. Day 3: reads real
 // beneficiary rows when the database is attached; falls back to demo rows
@@ -36,7 +52,8 @@ export default async function DashboardPage({ searchParams }: Props) {
           id: schema.beneficiaries.id,
           lang: schema.beneficiaries.lang,
           education: schema.beneficiaries.education,
-          district: schema.beneficiaries.district,
+                   district: schema.beneficiaries.district,
+          profile: schema.beneficiaries.profile,
         })
         .from(schema.beneficiaries)
         .orderBy(desc(schema.beneficiaries.createdAt))
@@ -102,15 +119,17 @@ export default async function DashboardPage({ searchParams }: Props) {
       realRows = rows.map((b): Row => {
         const ls = latestStatus[b.id];
         return {
-          name: `Profile ${b.id.slice(0, 6)}`,
+                   name: contactFrom(b.profile, "name") ?? `Profile ${b.id.slice(0, 6)}`,
           district: b.district ?? "-",
           education: b.education ?? "-",
           topRecommendation: topRec[b.id] ?? "-",
           status: isOutcomeStatus(ls) ? ls : "recommended",
-          beneficiaryId: b.id,
+                   beneficiaryId: b.id,
+          whatsapp: contactFrom(b.profile, "whatsapp"),
+          email: contactFrom(b.profile, "email"),
         };
       });
-    } catch {
+    } catch {{d.dashboard}
       dbLive = false;
     }
   }
@@ -227,7 +246,8 @@ export default async function DashboardPage({ searchParams }: Props) {
                   <th>{d.dashboard.colDistrict}</th>
                   <th>{d.dashboard.colEducation}</th>
                   <th>{d.dashboard.colRecommendation}</th>
-                  <th>{d.dashboard.colStatus}</th>
+                                    <th>{d.dashboard.colStatus}</th>
+                  <th>{d.dashboard.colConnect}</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,12 +261,30 @@ export default async function DashboardPage({ searchParams }: Props) {
                       <span className={`status status-${p.status}`}>
                         {p.status}
                       </span>
-                      {p.beneficiaryId && (
+                                            {p.beneficiaryId && (
                         <OutcomeSelect
                           beneficiaryId={p.beneficiaryId}
                           current={p.status}
                         />
                       )}
+                    </td>
+                    <td>
+                      {p.whatsapp ? (
+                        <a
+                          className="connect-wa"
+                          href={`https://wa.me/91${p.whatsapp.replace(/\D/g, "").slice(-10)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          💬 WhatsApp
+                        </a>
+                      ) : null}
+                      {p.email ? (
+                        <a className="connect-mail" href={`mailto:${p.email}`}>
+                          ✉
+                        </a>
+                      ) : null}
+                      {!p.whatsapp && !p.email ? "—" : null}
                     </td>
                   </tr>
                 ))}

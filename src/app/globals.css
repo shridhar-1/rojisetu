@@ -1706,3 +1706,30 @@ body {
     padding: 20px 16px;
   }
 }
+/* Day 18: connect-with-beneficiary buttons on the dashboard */
+.connect-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #14532d;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.connect-wa:hover {
+  background: #bbf7d0;
+  transform: translateY(-1px);
+}
+.connect-mail {
+  display: inline-flex;
+  margin-left: 6px;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-size: 1rem;
+  vertical-align: middle;
+}
