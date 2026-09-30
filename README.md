@@ -46,6 +46,7 @@ Set in Vercel project settings, never in code or git:
 - `GROQ_API_KEY`
 - `GEMINI_API_KEY`
 - `DEMO_MODE` = `true`
+- SARVAM_API_KEY=sk_your_key_here
 
 ## After every deploy
 
